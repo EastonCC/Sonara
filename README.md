@@ -1,2 +1,2 @@
 # Sonara
-Repo for Sonara: The complete ecosytem for indie artists.
+Create, share, and sell. The complete ecosytem for indie artists.
