@@ -9,7 +9,9 @@ export default defineConfig({
     port: 8080,
   },
   preview: {
-    host: true,
     port: 8080,
+    host: '0.0.0.0',
+    strictPort: true,
+    allowedHosts: true // This allows any URL to access the preview
   }
 })
