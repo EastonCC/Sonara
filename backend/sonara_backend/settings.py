@@ -132,6 +132,7 @@ CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "https://frontend-testing-878e.up.railway.app",
     "https://www.sonara.us",
+    "https://sonara.us",
 ]  
 
 # Static files (CSS, JavaScript, Images)
