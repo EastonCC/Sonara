@@ -128,8 +128,8 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
-
-CORS_ALLOW_ALL_ORIGINS = [
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = [
     "frontend-testing-878e.up.railway.app",
 ]  # For development only
 
