@@ -32,12 +32,6 @@ ALLOWED_HOSTS = [
     'localhost', 
     '127.0.0.1'
 ]
-CORS_ALLOW_ALL_ORIGINS = [
-    "https://sonara.us",
-    "https://www.sonara.us",
-]
-
-
 
 # Application definition
 
