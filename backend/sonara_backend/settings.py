@@ -25,7 +25,13 @@ SECRET_KEY = 'django-insecure-!x**%$*bjbnikce=72^r$_-k1is9l$h0s-q^!mpf1*qemk7cz3
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['www.sonara.us', 'sonara.us', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = [
+    'backend-production-0d0e6.up.railway.app',
+    'sonara.us',                               
+    'frontend-production-f3e8b.up.railway.app',
+    'localhost', 
+    '127.0.0.1'
+]
 CORS_ALLOW_ALL_ORIGINS = [
     "https://sonara.us",
     "https://www.sonara.us",
