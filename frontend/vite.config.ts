@@ -8,6 +8,6 @@ export default defineConfig({
     outDir: "dist",
   },
   preview: {
-    allowedHosts: [".up.railway.app", "www.sonara.us"],
+    allowedHosts: [".up.railway.app", "www.sonara.us", "sonara.us"],
   },
 });
