@@ -29,7 +29,7 @@ const Login = () => {
       const data = await response.json();
       localStorage.setItem('accessToken', data.access);
       localStorage.setItem('refreshToken', data.refresh);
-      navigate('/congrats'); // Redirect to the congrats page after login
+      navigate('/home'); // Redirect to the home page after login
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     }
