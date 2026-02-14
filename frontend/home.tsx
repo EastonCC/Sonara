@@ -20,9 +20,10 @@ const Home = () => {
   return (
     <div>
       <h1>Welcome to Sonara</h1>
-      <p>You are logged in!</p>
+      <p>You are logged in!</p> <p> Go to your <a href="/profile">Profile</a></p>
       <button onClick={handleLogout}>Logout</button>
     </div>
+
   );
 };
 
