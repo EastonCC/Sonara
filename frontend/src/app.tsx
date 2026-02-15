@@ -1,8 +1,8 @@
 import { Routes, Route } from 'react-router-dom';
-import Home from './home';
-import Login from './login';
-import Signup from './signup';
-import Congrats from './congrats';
+import Home from './Home';
+import Login from './Login';
+import Signup from './Signup';
+import Congrats from './Congrats';
 
 const App = () => {
   return (

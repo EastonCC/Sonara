@@ -1,14 +1,21 @@
-import { useState, FormEvent, ChangeEvent } from 'react';
+import { useState, FormEvent, ChangeEvent, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import sonaraLogo from './assets/sonara_logo.svg';
 import waveLeft from './assets/wave-left.svg';
 import waveRight from './assets/wave-right.svg';
+import LogoTransition from './LogoTransition';
 
 const Login = () => {
+
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [showTransition, setShowTransition] = useState<boolean>(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.title = 'Login | Sonara';
+  }, []);
 
   const handleLogin = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -32,7 +39,9 @@ const Login = () => {
       const data = await response.json();
       localStorage.setItem('accessToken', data.access);
       localStorage.setItem('refreshToken', data.refresh);
-      navigate('/congrats');
+      
+      // Show transition instead of navigating immediately
+      setShowTransition(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
     }
@@ -45,6 +54,17 @@ const Login = () => {
   const handlePasswordChange = (e: ChangeEvent<HTMLInputElement>): void => {
     setPassword(e.target.value);
   };
+
+  // Show transition screen after successful login
+  if (showTransition) {
+    return (
+      <LogoTransition 
+        playSound={true} 
+        duration={1200}
+        onComplete={() => navigate('/congrats')} 
+      />
+    );
+  }
 
   return (
     <div style={styles.container}>
@@ -162,7 +182,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     top: 0,
     height: '100%',
     width: 'auto',
-    maxWidth: '500px',  // was 350px
+    maxWidth: '350px',
     pointerEvents: 'none',
     opacity: 0.8,
   },
@@ -172,7 +192,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     top: 0,
     height: '100%',
     width: 'auto',
-    maxWidth: '500px',  // was 350px
+    maxWidth: '350px',
     pointerEvents: 'none',
     opacity: 0.8,
   },
@@ -183,11 +203,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     zIndex: 1,
     padding: '20px',
     width: '100%',
-    maxWidth: '1000px',
+    maxWidth: '500px',
   },
   logo: {
     width: '100%',
-    maxWidth: '700px',
+    maxWidth: '350px',
     height: 'auto',
     marginBottom: '60px',
     filter: 'drop-shadow(0 0 20px rgba(255, 255, 255, 0.3))',
