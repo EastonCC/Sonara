@@ -21,3 +21,11 @@ class ProtectedView(APIView):
 
     def get(self, request):
         return Response({"message": "This is a protected endpoint! You are authenticated."})
+
+class ProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        serializer = UserSerializer(user)
+        return Response(serializer.data)

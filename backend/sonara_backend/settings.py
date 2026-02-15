@@ -27,6 +27,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['www.sonara.us', 'sonara.us', 'localhost', '127.0.0.1']
 CORS_ALLOW_ALL_ORIGINS = [
+    "http://localhost:5173",
     "https://sonara.us",
     "https://www.sonara.us",
 ]
@@ -112,6 +113,9 @@ AUTH_PASSWORD_VALIDATORS = [
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
     ),
 }
 
