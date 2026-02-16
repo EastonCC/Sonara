@@ -61,7 +61,7 @@ const Login = () => {
       <LogoTransition 
         playSound={true} 
         duration={1200}
-        onComplete={() => navigate('/home')} 
+        onComplete={() => navigate('/listenerHome')} 
       />
     );
   }
@@ -203,11 +203,11 @@ const styles: { [key: string]: React.CSSProperties } = {
     zIndex: 1,
     padding: '20px',
     width: '100%',
-    maxWidth: '500px',
+    maxWidth: '1000px',
   },
   logo: {
     width: '100%',
-    maxWidth: '350px',
+    maxWidth: '700px',
     height: 'auto',
     marginBottom: '60px',
     filter: 'drop-shadow(0 0 20px rgba(255, 255, 255, 0.3))',

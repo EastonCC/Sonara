@@ -3,6 +3,7 @@ import Home from './Home';
 import Login from './Login';
 import Signup from './Signup';
 import Profile from './Profile';
+import ListenerHome from './listenerHome';
 
 const App = () => {
   return (
@@ -12,6 +13,7 @@ const App = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/profile" element={<Profile />} />
+      <Route path="/listenerHome" element={<ListenerHome />} />
     </Routes>
   );
 };

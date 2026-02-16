@@ -7,6 +7,7 @@ const ListenerHome = () => {
 
   useEffect(() => {
     // Check if the user is logged in
+    document.title = 'Home | Sonara';
     const token = localStorage.getItem('accessToken');
     if (!token) {
       navigate('/login');
