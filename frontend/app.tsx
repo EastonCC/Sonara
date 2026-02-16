@@ -3,7 +3,7 @@ import Home from './home';
 import Login from './login';
 import Signup from './signup';
 import Congrats from './congrats';
-import Profile from './profile';
+import Profile from './src/Profile';
 
 const App = () => {
   return (

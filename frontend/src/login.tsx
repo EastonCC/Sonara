@@ -61,7 +61,7 @@ const Login = () => {
       <LogoTransition 
         playSound={true} 
         duration={1200}
-        onComplete={() => navigate('/congrats')} 
+        onComplete={() => navigate('/home')} 
       />
     );
   }
