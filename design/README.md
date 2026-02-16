@@ -22,3 +22,29 @@ Color Pallet: Blue, Pink and Purple
 
 #Notes
 The wireframes were also made with a rough layout of the design.
+
+--------------------------------------------------------------------------------------------------------------------------------------------
+
+#Sonara - UX/UI Design (Sprint 2)
+
+Designer : Mahi Patel  
+Sprint : Weeks 3-4  
+Role : UX/UI Designer
+
+#Design Tool
+- Figma
+
+#Screens designed 
+- Setting page (started)
+- Publish page
+- Follow page
+- Upload beat page
+- Sign up page
+
+#Design theme
+The background is a dark radial gradient.
+The "SONARA" logo is a multi-color linear gradient.
+Color Pallet: Blue, Pink and Purple
+
+#Notes
+Setting's page wireframe was created and completed few high fidelity mockups. 
