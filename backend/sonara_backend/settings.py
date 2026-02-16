@@ -26,6 +26,7 @@ SECRET_KEY = 'django-insecure-!x**%$*bjbnikce=72^r$_-k1is9l$h0s-q^!mpf1*qemk7cz3
 DEBUG = True
 
 ALLOWED_HOSTS = ['www.sonara.us', 'sonara.us', 'localhost', '127.0.0.1']
+#CORS_ALLOW_ALL_ORIGINS = True  # For development only
 CORS_ALLOW_ALL_ORIGINS = [
     "http://localhost:5173",
     "https://sonara.us",
@@ -133,7 +134,6 @@ USE_I18N = True
 
 USE_TZ = True
 
-CORS_ALLOW_ALL_ORIGINS = True  # For development only
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
