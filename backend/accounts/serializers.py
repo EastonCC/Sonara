@@ -1,0 +1,124 @@
+from rest_framework import serializers
+from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.core.files.storage import default_storage
+from .models import Track
+
+User = get_user_model()
+
+
+class UserSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, validators=[validate_password])
+    role = serializers.ReadOnlyField()
+
+    class Meta:
+        model = User
+        fields = (
+            'id', 'username', 'email', 'password',
+            'is_listener', 'is_creator', 'role',
+            'header_image', 'profile_picture',
+            'bio',
+        )
+
+    def create(self, validated_data):
+        user = User.objects.create_user(**validated_data)
+        return user
+
+
+def coerce_bool(value):
+    """Accept string 'true'/'false' from multipart form data."""
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.lower().strip() in ('true', '1', 'yes', 'on')
+    return bool(value)
+
+
+class ProfileUpdateSerializer(serializers.ModelSerializer):
+    """PATCH profile: bio, roles, header_image, profile_picture. Set remove_* to True to clear."""
+    remove_header_image = serializers.BooleanField(write_only=True, required=False, default=False)
+    remove_profile_picture = serializers.BooleanField(write_only=True, required=False, default=False)
+    is_listener = serializers.BooleanField(required=False, default=False)
+    is_creator = serializers.BooleanField(required=False, default=False)
+
+    class Meta:
+        model = User
+        fields = (
+            'bio', 'is_listener', 'is_creator',
+            'header_image', 'profile_picture',
+            'remove_header_image', 'remove_profile_picture',
+        )
+
+    def validate_is_listener(self, value):
+        return coerce_bool(value)
+
+    def validate_is_creator(self, value):
+        return coerce_bool(value)
+
+    def validate_remove_header_image(self, value):
+        return coerce_bool(value)
+
+    def validate_remove_profile_picture(self, value):
+        return coerce_bool(value)
+
+    def update(self, instance, validated_data):
+        remove_header = validated_data.pop('remove_header_image', False)
+        remove_pfp = validated_data.pop('remove_profile_picture', False)
+
+        old_header_name = instance.header_image.name if instance.header_image else None
+        old_pfp_name = instance.profile_picture.name if instance.profile_picture else None
+
+        if remove_header and instance.header_image:
+            instance.header_image = None
+        if remove_pfp and instance.profile_picture:
+            instance.profile_picture = None
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+
+        # Delete old files from storage when replaced or removed
+        if old_header_name:
+            new_header_name = instance.header_image.name if instance.header_image else None
+            if new_header_name != old_header_name:
+                default_storage.delete(old_header_name)
+        if old_pfp_name:
+            new_pfp_name = instance.profile_picture.name if instance.profile_picture else None
+            if new_pfp_name != old_pfp_name:
+                default_storage.delete(old_pfp_name)
+
+        return instance
+
+
+ALLOWED_AUDIO_TYPES = {
+    'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav',
+    'audio/ogg', 'audio/flac', 'audio/aac', 'audio/mp4',
+    'audio/x-m4a', 'audio/webm',
+}
+
+AUDIO_MAX_SIZE = 50 * 1024 * 1024  # 50 MB
+
+
+class TrackSerializer(serializers.ModelSerializer):
+    audio_file = serializers.FileField()
+
+    class Meta:
+        model = Track
+        fields = ('id', 'title', 'audio_file', 'uploaded_at')
+        read_only_fields = ('id', 'uploaded_at')
+
+    def validate_audio_file(self, value):
+        if value.content_type not in ALLOWED_AUDIO_TYPES:
+            raise serializers.ValidationError(
+                'Unsupported audio format. Allowed: MP3, WAV, OGG, FLAC, AAC, M4A, WebM.'
+            )
+        if value.size > AUDIO_MAX_SIZE:
+            raise serializers.ValidationError('Audio file must be under 50 MB.')
+        return value
+
+    def create(self, validated_data):
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
