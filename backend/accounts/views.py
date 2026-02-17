@@ -41,8 +41,8 @@ class ProtectedView(APIView):
 class ForgotPasswordView(APIView):
     permission_classes = [permissions.AllowAny]
 
-    @method_decorator(ratelimit(key='ip', rate='3/h', method='POST', block=False))
-    @method_decorator(ratelimit(key='post:email', rate='2/h', method='POST', block=False))
+    @method_decorator(ratelimit(key='ip', rate='5/h', method='POST', block=False))
+    @method_decorator(ratelimit(key='post:email', rate='5/h', method='POST', block=False))
     def post(self, request):
         # Check if rate limited
         if getattr(request, 'limited', False):
