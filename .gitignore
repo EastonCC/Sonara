@@ -17,6 +17,7 @@ out/
 # Environment
 .env
 .env.local
+backend/.env
 
 # IDE
 .vscode/
@@ -29,4 +30,4 @@ Thumbs.db
 
 # Logs
 *.log
-
+backend/media

@@ -1,3 +1,8 @@
+
+from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv()
+
 """
 Django settings for sonara_backend project.
 
@@ -10,9 +15,15 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
-from pathlib import Path
-from dotenv import load_dotenv
-load_dotenv()
+
+import os
+
+ENV = os.environ.get('ENV', 'dev')
+
+if ENV == 'dev':
+    FRONTEND_URL = 'http://localhost:5173'
+else:
+    FRONTEND_URL = 'https://www.sonara.us'
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
