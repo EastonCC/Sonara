@@ -8,3 +8,5 @@ resend
 django-ratelimit
 Pillow
 django-storages
+django-cloudinary-storage
+cloudinary
