@@ -5,17 +5,44 @@ import sonaraLogo from './assets/sonara_logo.svg';
 const ListenerHome = () => {
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    document.title = 'Home | Sonara';
+  document.title = 'Home | Sonara';
+  
+  const verifyAuth = async () => {
     const token = localStorage.getItem('accessToken');
     if (!token) {
       navigate('/login');
-    } else {
-      const storedUsername = localStorage.getItem('username');
-      if (storedUsername) setUsername(storedUsername);
+      return;
     }
-  }, [navigate]);
+    
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+      const response = await fetch(`${API_BASE_URL}/api/auth/profile/`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (!response.ok) {
+        // Token invalid or expired - clear and redirect
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        navigate('/login');
+        return;
+      }
+      
+      const data = await response.json();
+      setUsername(data.username);
+      setLoading(false);
+    } catch {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      navigate('/login');
+    }
+  };
+  
+  verifyAuth();
+}, [navigate]);
 
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
