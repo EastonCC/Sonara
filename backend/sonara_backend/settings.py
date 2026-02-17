@@ -37,14 +37,24 @@ FRONTEND_URL = 'https://www.sonara.us'  # Change to 'http://localhost:5173' for 
 SECRET_KEY = 'django-insecure-!x**%$*bjbnikce=72^r$_-k1is9l$h0s-q^!mpf1*qemk7cz3'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['www.sonara.us', 'sonara.us', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = [
+    'www.sonara.us',
+    'sonara.us',
+    'localhost',
+    '127.0.0.1',
+    'backend-production-0d0e6.up.railway.app',
+]
+
 CORS_ALLOW_ALL_ORIGINS = False  # For development only
-CORS_ALLOWED_ORIGINS  = [
+
+CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "http://127.0.0.1:5173",
     "https://sonara.us",
     "https://www.sonara.us",
+    "https://backend-production-0d0e6.up.railway.app",
 ]
 
 
