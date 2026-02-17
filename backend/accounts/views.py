@@ -86,7 +86,7 @@ class ForgotPasswordView(APIView):
                                 <tr>
                                     <td align="center">
                                         <!-- Logo -->
-                                        <img src="/sonara_logo.png" alt="Sonara" style="width: 200px; margin-bottom: 30px;" />
+                                        <img src="https://www.sonara.us/sonara_logo.png" alt="Sonara" style="width: 200px; margin-bottom: 30px;" />
                                     </td>
                                 </tr>
                                 <tr>
