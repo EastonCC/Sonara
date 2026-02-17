@@ -16,7 +16,9 @@ from django.utils.decorators import method_decorator
 from django_ratelimit.core import is_ratelimited
 from datetime import datetime, timedelta
 import resend
-resend.api_key = "re_fYBUDm5h_LQ2fkt6oChtV1C8Pc8DRN5hH"
+import os
+
+resend.api_key = os.environ.get('RESEND_API_KEY')
 
 
 User = get_user_model()
