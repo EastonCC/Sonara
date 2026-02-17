@@ -6,6 +6,7 @@ import ForgotPassword from './ForgotPassword';
 import ResetPassword from './ResetPassword';
 import ProfilePage from './ProfilePage';
 import ListenerHome from './ListenerHome';
+import NotFound from './NotFound';
 
 const App = () => {
   return (
@@ -18,6 +19,7 @@ const App = () => {
       <Route path="/profile" element={<ProfilePage />} />
       <Route path="/home" element={<ListenerHome />} />
       <Route path="/listenerHome" element={<Navigate to="/home" replace />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 };
