@@ -21,6 +21,7 @@ out/
 # IDE
 .vscode/
 .idea/
+package-lock.json
 
 # OS
 .DS_Store
@@ -28,3 +29,4 @@ Thumbs.db
 
 # Logs
 *.log
+

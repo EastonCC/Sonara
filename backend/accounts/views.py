@@ -1,26 +1,28 @@
 from rest_framework import generics, permissions, status
-from rest_framework_simplejwt.views import TokenObtainPairView
-from django.contrib.auth import get_user_model
-from .serializers import UserSerializer
 from rest_framework.views import APIView
+from rest_framework.generics import RetrieveUpdateAPIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework_simplejwt.views import TokenObtainPairView
+from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
-from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+from django.core.files.storage import default_storage
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.utils.decorators import method_decorator
 from django.conf import settings
 from django_ratelimit.decorators import ratelimit
-from django.utils.decorators import method_decorator
-from django_ratelimit.core import is_ratelimited
 from datetime import datetime, timedelta
 import resend
 import os
 
+from .serializers import UserSerializer, ProfileUpdateSerializer, TrackSerializer
+from .models import Track
+
 resend.api_key = os.environ.get('RESEND_API_KEY')
-
-
 User = get_user_model()
 
 class RegisterView(generics.CreateAPIView):
@@ -35,13 +37,6 @@ class ProtectedView(APIView):
     permission_classes = [IsAuthenticated]
     def get(self, request):
         return Response({"message": "This is a protected endpoint! You are authenticated."})
-
-class ProfileView(APIView):
-    permission_classes = [IsAuthenticated]
-    def get(self, request):
-        user = request.user
-        serializer = UserSerializer(user)
-        return Response(serializer.data)
 
 class ForgotPasswordView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -165,3 +160,52 @@ class ResetPasswordView(APIView):
         user.save()
 
         return Response({'message': 'Password has been reset successfully'})
+
+class ProfileView(RetrieveUpdateAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = User.objects.all()
+
+    def get_serializer_class(self):
+        if self.request.method in ('PUT', 'PATCH'):
+            return ProfileUpdateSerializer
+        return UserSerializer
+
+    def get_object(self):
+        return self.request.user
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', True)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(UserSerializer(instance, context=self.get_serializer_context()).data)
+
+
+class TrackListCreateView(generics.ListCreateAPIView):
+    """List the authenticated user's tracks or upload a new one."""
+    serializer_class = TrackSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_queryset(self):
+        return Track.objects.filter(user=self.request.user)
+
+
+class TrackDeleteView(generics.DestroyAPIView):
+    """Delete a track (only if the requesting user owns it)."""
+    serializer_class = TrackSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Track.objects.filter(user=self.request.user)
+
+    def perform_destroy(self, instance):
+        if instance.audio_file:
+            default_storage.delete(instance.audio_file.name)
+        instance.delete()

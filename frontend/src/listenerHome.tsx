@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import sonaraLogo from './assets/sonara_logo.svg';
 
 const ListenerHome = () => {
@@ -43,7 +43,7 @@ const ListenerHome = () => {
           <span style={{...styles.tab, ...styles.tabActive}}>Home</span>
           <span style={styles.tab}>Explore</span>
           <span style={styles.tab}>Create</span>
-          <span style={styles.tab}>Profile</span>
+          <span style={styles.tab}><Link to="/profile" className="profile-nav-link" style={styles.profileLink}>Profile</Link></span>
           <span style={styles.tab}>Library</span>
         </div>
 
@@ -95,6 +95,10 @@ const ListenerHome = () => {
 
         button:hover {
           transform: translateY(-2px);
+        }
+
+        a.profile-nav-link:hover {
+          color: #00d4ff !important;
         }
       `}</style>
     </div>
@@ -194,6 +198,10 @@ const styles: Record<string, React.CSSProperties> = {
   tabActive: {
     color: '#00d4ff',
     borderBottom: '2px solid #00d4ff',
+  },
+  profileLink: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    textDecoration: 'none',
   },
   section: {
     marginBottom: '50px',
