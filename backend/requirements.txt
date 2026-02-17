@@ -1,6 +1,9 @@
-Django>=4.2,<5.0
+Django>=6.0.1
 gunicorn
 python-dotenv
 djangorestframework
 django-cors-headers
 djangorestframework-simplejwt
+resend
+django-ratelimit
+Pillow

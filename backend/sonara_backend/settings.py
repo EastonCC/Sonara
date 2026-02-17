@@ -1,3 +1,8 @@
+
+from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv()
+
 """
 Django settings for sonara_backend project.
 
@@ -10,11 +15,20 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
-from pathlib import Path
+
+import os
+
+ENV = os.environ.get('ENV', 'dev')
+
+if ENV == 'dev':
+    FRONTEND_URL = 'http://localhost:5173'
+else:
+    FRONTEND_URL = 'https://www.sonara.us'
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+FRONTEND_URL = 'https://www.sonara.us'  # Change to 'http://localhost:5173' for local dev
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -25,13 +39,16 @@ SECRET_KEY = 'django-insecure-!x**%$*bjbnikce=72^r$_-k1is9l$h0s-q^!mpf1*qemk7cz3
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [
-    'backend-production-0d0e6.up.railway.app',
-    'sonara.us',                               
-    'frontend-production-f3e8b.up.railway.app',
-    'localhost', 
-    '127.0.0.1'
+ALLOWED_HOSTS = ['www.sonara.us', 'sonara.us', 'localhost', '127.0.0.1']
+CORS_ALLOW_ALL_ORIGINS = False  # For development only
+CORS_ALLOWED_ORIGINS  = [
+    "http://localhost:5173",
+    "https://sonara.us",
+    "https://www.sonara.us",
 ]
+
+
+
 
 # Application definition
 
@@ -113,6 +130,9 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
 }
 
 # Custom User Model
@@ -128,15 +148,24 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [
-    "https://frontend-testing-878e.up.railway.app",
-    "https://frontend-production-d6ee.up.railway.app",
-    "https://www.sonara.us",
-    "https://sonara.us",
-]  
+
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Media files (user uploads)
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=14),
+
+    # Optional but recommended:
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+}
