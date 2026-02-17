@@ -212,15 +212,14 @@ const ProfilePage = () => {
     }
   };
 
+  // Fetch profile on mount
   useEffect(() => {
     const fetchProfile = async () => {
       const accessToken = localStorage.getItem('accessToken');
-
       if (!accessToken) {
         navigate('/login');
         return;
       }
-
       try {
         const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
         const response = await fetch(`${baseUrl}/api/auth/profile/`, {
@@ -230,11 +229,9 @@ const ProfilePage = () => {
             'Content-Type': 'application/json',
           },
         });
-
         if (!response.ok) {
           throw new Error('Failed to fetch profile data');
         }
-
         const data = await response.json();
         setUser(data);
       } catch (err: unknown) {
@@ -243,10 +240,17 @@ const ProfilePage = () => {
         setLoading(false);
       }
     };
-
     fetchProfile();
-    document.title = `${user?.username}'s Profile | Sonara`;
   }, [navigate]);
+
+  // Update document title when user loads
+  useEffect(() => {
+    if (user?.username) {
+      document.title = `${user.username}'s Profile | Sonara`;
+    } else {
+      document.title = 'Profile | Sonara';
+    }
+  }, [user?.username]);
 
   useEffect(() => {
     fetchTracks();
