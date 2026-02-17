@@ -1,4 +1,3 @@
-
 from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
@@ -72,6 +71,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
+    'cloudinary_storage',  # Add BEFORE django.contrib.staticfiles if you want static files too
+    'cloudinary',
     'accounts',
 ]
 
@@ -168,6 +169,23 @@ STATIC_URL = 'static/'
 # Media files (user uploads)
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Cloudinary configuration
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
+}
+
+# Use Cloudinary for all media file storage
+STORAGES = {
+    "default": {
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
 
 from datetime import timedelta
 

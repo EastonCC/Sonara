@@ -213,6 +213,7 @@ const ProfilePage = () => {
   };
 
   useEffect(() => {
+    document.title = `${user?.username}'s Profile | Sonara`;
     const fetchProfile = async () => {
       const accessToken = localStorage.getItem('accessToken');
 
