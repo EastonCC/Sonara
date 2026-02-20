@@ -1,5 +1,4 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import Home from './Home';
 import Login from './Login';
 import Signup from './Signup';
 import ForgotPassword from './ForgotPassword';
@@ -7,8 +6,8 @@ import ResetPassword from './ResetPassword';
 import ProfilePage from './ProfilePage';
 import ListenerHome from './ListenerHome';
 import NotFound from './NotFound';
-import Create from './Create';
-import Workstation from './Workstation';
+import Create from './workstation/Create';
+import Workstation from './workstation/Workstation';
 
 
 const App = () => {

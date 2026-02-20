@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import sonaraLogo from './assets/sonara_logo.svg';
-import waveLeft from './assets/wave-left.svg';
-import waveRight from './assets/wave-right.svg';
+import sonaraLogo from '../assets/sonara_logo.svg';
+import waveLeft from '../assets/wave-left.svg';
+import waveRight from '../assets/wave-right.svg';
 
 interface Project {
   id: number;

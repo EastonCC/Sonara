@@ -31,3 +31,5 @@ Thumbs.db
 # Logs
 *.log
 backend/media
+frontend/dist/index.html
+frontend/dist/assets/index-DrL7MnwB.js
