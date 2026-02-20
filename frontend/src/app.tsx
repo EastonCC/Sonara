@@ -7,6 +7,9 @@ import ResetPassword from './ResetPassword';
 import ProfilePage from './ProfilePage';
 import ListenerHome from './ListenerHome';
 import NotFound from './NotFound';
+import Create from './Create';
+import Workstation from './Workstation';
+
 
 const App = () => {
   return (
@@ -20,6 +23,8 @@ const App = () => {
       <Route path="/home" element={<ListenerHome />} />
       <Route path="/listenerHome" element={<Navigate to="/home" replace />} />
       <Route path="*" element={<NotFound />} />
+      <Route path="/create" element={<Create />} />
+      <Route path="/workstation" element={<Workstation />} />
     </Routes>
   );
 };

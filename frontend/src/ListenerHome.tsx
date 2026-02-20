@@ -69,8 +69,8 @@ const ListenerHome = () => {
         <div style={styles.navTabs}>
           <span style={{...styles.tab, ...styles.tabActive}}>Home</span>
           <span style={styles.tab}>Explore</span>
-          <span style={styles.tab}>Create</span>
-          <span style={styles.tab}><Link to="/profile" className="profile-nav-link" style={styles.profileLink}>Profile</Link></span>
+          <span style={styles.tab}><Link to="/create" className="top-nav-link" style={styles.topNavLink}>Create</Link></span>
+          <span style={styles.tab}><Link to="/profile" className="top-nav-link" style={styles.topNavLink}>Profile</Link></span>
           <span style={styles.tab}>Library</span>
         </div>
 
@@ -124,7 +124,7 @@ const ListenerHome = () => {
           transform: translateY(-2px);
         }
 
-        a.profile-nav-link:hover {
+        a.top-nav-link:hover {
           color: #00d4ff !important;
         }
       `}</style>
@@ -226,7 +226,7 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#00d4ff',
     borderBottom: '2px solid #00d4ff',
   },
-  profileLink: {
+  topNavLink: {
     color: 'rgba(255, 255, 255, 0.6)',
     textDecoration: 'none',
   },
