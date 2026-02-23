@@ -1,17 +1,15 @@
 import React, { useRef, useMemo } from 'react';
-import { Track } from '../models/types';
-
-interface TimelineProps {
-  tracks: Track[];
-  currentTime: number;
-  bpm: number;
-  timeSignature: { numerator: number; denominator: number };
-  zoom: number;
-}
+import useDawStore from '../state/dawStore';
 
 const TOTAL_BARS = 32;
 
-const Timeline: React.FC<TimelineProps> = ({ tracks, currentTime, bpm, timeSignature, zoom }) => {
+const Timeline: React.FC = () => {
+  const tracks = useDawStore((s) => s.tracks);
+  const currentTime = useDawStore((s) => s.currentTime);
+  const bpm = useDawStore((s) => s.bpm);
+  const timeSignature = useDawStore((s) => s.timeSignature);
+  const zoom = useDawStore((s) => s.zoom);
+
   const timelineRef = useRef<HTMLDivElement>(null);
   const beatsPerBar = timeSignature.numerator;
   const pixelsPerBeat = 50 * zoom;

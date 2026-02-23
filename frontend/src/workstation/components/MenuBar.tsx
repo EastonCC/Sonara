@@ -1,17 +1,21 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import useDawStore from '../state/dawStore';
 
-interface MenuBarProps {
-  projectName: string;
-  onProjectNameChange: (name: string) => void;
-  onSave: () => void;
-  onExit: () => void;
-}
+const MenuBar: React.FC = () => {
+  const navigate = useNavigate();
+  const projectName = useDawStore((s) => s.projectName);
+  const setProjectName = useDawStore((s) => s.setProjectName);
 
-const MenuBar: React.FC<MenuBarProps> = ({ projectName, onProjectNameChange, onSave, onExit }) => {
+  const handleSave = async () => {
+    console.log('Saving project...', projectName);
+    alert('Project saved!');
+  };
+
   return (
     <div style={styles.menuBar}>
       <div style={styles.menuLeft}>
-        <button onClick={onExit} style={styles.menuButton}>↩ Exit</button>
+        <button onClick={() => navigate('/create')} style={styles.menuButton}>↩ Exit</button>
         <span style={styles.menuDivider}>|</span>
         <button style={styles.menuButton}>File</button>
         <button style={styles.menuButton}>Edit</button>
@@ -23,10 +27,10 @@ const MenuBar: React.FC<MenuBarProps> = ({ projectName, onProjectNameChange, onS
         <input
           type="text"
           value={projectName}
-          onChange={(e) => onProjectNameChange(e.target.value)}
+          onChange={(e) => setProjectName(e.target.value)}
           style={styles.projectNameInput}
         />
-        <button onClick={onSave} style={styles.saveButton}>Save</button>
+        <button onClick={handleSave} style={styles.saveButton}>Save</button>
       </div>
     </div>
   );

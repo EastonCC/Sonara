@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import { Track } from '../models/types';
+import useDawStore from '../state/dawStore';
 
 interface TrackRowProps {
-  track: Track;
-  onToggleMute: (trackId: number) => void;
-  onToggleSolo: (trackId: number) => void;
-  onDelete: (trackId: number) => void;
+  trackId: number;
 }
 
-const TrackRow: React.FC<TrackRowProps> = ({ track, onToggleMute, onToggleSolo, onDelete }) => {
+const TrackRow: React.FC<TrackRowProps> = ({ trackId }) => {
+  const track = useDawStore((s) => s.tracks.find((t) => t.id === trackId));
+  const toggleMute = useDawStore((s) => s.toggleMute);
+  const toggleSolo = useDawStore((s) => s.toggleSolo);
+  const deleteTrack = useDawStore((s) => s.deleteTrack);
   const [showVolumeDropdown, setShowVolumeDropdown] = useState(false);
+
+  if (!track) return null;
 
   const trackIcon = track.type === 'audio' ? '🎤' : track.type === 'drums' ? '🥁' : '🎹';
 
@@ -17,7 +21,7 @@ const TrackRow: React.FC<TrackRowProps> = ({ track, onToggleMute, onToggleSolo, 
     <div style={styles.trackRow}>
       <div style={styles.trackControls}>
         <button
-          onClick={() => onToggleMute(track.id)}
+          onClick={() => toggleMute(track.id)}
           style={{
             ...styles.muteButton,
             ...(track.muted ? styles.muteButtonActive : {}),
@@ -26,7 +30,7 @@ const TrackRow: React.FC<TrackRowProps> = ({ track, onToggleMute, onToggleSolo, 
           M
         </button>
         <button
-          onClick={() => onToggleSolo(track.id)}
+          onClick={() => toggleSolo(track.id)}
           style={{
             ...styles.soloButton,
             ...(track.solo ? styles.soloButtonActive : {}),
@@ -42,7 +46,7 @@ const TrackRow: React.FC<TrackRowProps> = ({ track, onToggleMute, onToggleSolo, 
             {trackIcon}
           </span>
           <span style={styles.trackName}>{track.name}</span>
-          <button onClick={() => onDelete(track.id)} style={styles.trackMenuButton}>
+          <button onClick={() => deleteTrack(track.id)} style={styles.trackMenuButton}>
             ···
           </button>
         </div>

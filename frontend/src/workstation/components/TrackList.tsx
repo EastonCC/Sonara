@@ -1,26 +1,15 @@
 import React from 'react';
-import { Track } from '../models/types';
+import useDawStore from '../state/dawStore';
 import TrackRow from './TrackRow';
 
-interface TrackListProps {
-  tracks: Track[];
-  onAddTrack: () => void;
-  onToggleMute: (trackId: number) => void;
-  onToggleSolo: (trackId: number) => void;
-  onDeleteTrack: (trackId: number) => void;
-}
+const TrackList: React.FC = () => {
+  const tracks = useDawStore((s) => s.tracks);
+  const addTrack = useDawStore((s) => s.addTrack);
 
-const TrackList: React.FC<TrackListProps> = ({
-  tracks,
-  onAddTrack,
-  onToggleMute,
-  onToggleSolo,
-  onDeleteTrack,
-}) => {
   return (
     <div style={styles.trackList}>
       <div style={styles.addTrackRow}>
-        <button onClick={onAddTrack} style={styles.addTrackButton}>
+        <button onClick={addTrack} style={styles.addTrackButton}>
           + Add Track
         </button>
         <div style={styles.trackTools}>
@@ -30,13 +19,7 @@ const TrackList: React.FC<TrackListProps> = ({
       </div>
 
       {tracks.map((track) => (
-        <TrackRow
-          key={track.id}
-          track={track}
-          onToggleMute={onToggleMute}
-          onToggleSolo={onToggleSolo}
-          onDelete={onDeleteTrack}
-        />
+        <TrackRow key={track.id} trackId={track.id} />
       ))}
     </div>
   );

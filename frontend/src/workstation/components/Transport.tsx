@@ -1,19 +1,5 @@
 import React from 'react';
-
-interface TransportProps {
-  isPlaying: boolean;
-  isRecording: boolean;
-  currentTime: number;
-  bpm: number;
-  timeSignature: { numerator: number; denominator: number };
-  musicalKey: string;
-  onTogglePlay: () => void;
-  onStop: () => void;
-  onRewind: () => void;
-  onToggleRecord: () => void;
-  onBpmChange: (bpm: number) => void;
-  onKeyChange: (key: string) => void;
-}
+import useDawStore from '../state/dawStore';
 
 const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -24,20 +10,20 @@ const formatTime = (seconds: number) => {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms}`;
 };
 
-const Transport: React.FC<TransportProps> = ({
-  isPlaying,
-  isRecording,
-  currentTime,
-  bpm,
-  timeSignature,
-  musicalKey,
-  onTogglePlay,
-  onStop,
-  onRewind,
-  onToggleRecord,
-  onBpmChange,
-  onKeyChange,
-}) => {
+const Transport: React.FC = () => {
+  const isPlaying = useDawStore((s) => s.isPlaying);
+  const isRecording = useDawStore((s) => s.isRecording);
+  const currentTime = useDawStore((s) => s.currentTime);
+  const bpm = useDawStore((s) => s.bpm);
+  const timeSignature = useDawStore((s) => s.timeSignature);
+  const musicalKey = useDawStore((s) => s.musicalKey);
+  const togglePlay = useDawStore((s) => s.togglePlay);
+  const stop = useDawStore((s) => s.stop);
+  const rewind = useDawStore((s) => s.rewind);
+  const toggleRecord = useDawStore((s) => s.toggleRecord);
+  const setBpm = useDawStore((s) => s.setBpm);
+  const setMusicalKey = useDawStore((s) => s.setMusicalKey);
+
   return (
     <div style={styles.transportBar}>
       <div style={styles.transportLeft}>
@@ -49,20 +35,20 @@ const Transport: React.FC<TransportProps> = ({
       </div>
 
       <div style={styles.transportCenter}>
-        <button onClick={onRewind} style={styles.transportButton}>
+        <button onClick={rewind} style={styles.transportButton}>
           ⏮
         </button>
         <button
-          onClick={onTogglePlay}
+          onClick={togglePlay}
           style={{ ...styles.transportButton, ...styles.playButton }}
         >
           {isPlaying ? '⏸' : '▶'}
         </button>
-        <button onClick={onStop} style={styles.transportButton}>
+        <button onClick={stop} style={styles.transportButton}>
           ⏭
         </button>
         <button
-          onClick={onToggleRecord}
+          onClick={toggleRecord}
           style={{
             ...styles.transportButton,
             ...styles.recordButton,
@@ -79,7 +65,7 @@ const Transport: React.FC<TransportProps> = ({
           <span style={styles.controlLabel}>{musicalKey}</span>
           <select
             value={musicalKey}
-            onChange={(e) => onKeyChange(e.target.value)}
+            onChange={(e) => setMusicalKey(e.target.value)}
             style={styles.controlSelect}
           >
             {KEYS.map((k) => (
@@ -93,7 +79,7 @@ const Transport: React.FC<TransportProps> = ({
           <input
             type="number"
             value={bpm}
-            onChange={(e) => onBpmChange(Number(e.target.value))}
+            onChange={(e) => setBpm(Number(e.target.value))}
             style={styles.bpmInput}
             min={20}
             max={300}
