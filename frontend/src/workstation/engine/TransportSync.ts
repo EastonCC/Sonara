@@ -119,8 +119,26 @@ export const reschedule = () => {
 };
 
 // Update BPM in real time
-export const updateBpm = (bpm: number) => {
-  audioEngine.setBpm(bpm);
+export const updateBpm = (newBpm: number) => {
+  const { isPlaying, tracks, currentTime, bpm: oldBpm } = useDawStore.getState();
+
+  if (isPlaying) {
+    // Convert current position from seconds to beats (using old BPM),
+    // then back to seconds using the new BPM
+    const currentBeat = (currentTime / 60) * oldBpm;
+    const newTimeInSeconds = (currentBeat / newBpm) * 60;
+
+    // Stop, reschedule with new BPM from the correct position
+    audioEngine.stop();
+    useDawStore.getState().setCurrentTime(newTimeInSeconds);
+    audioEngine.play(tracks, newBpm, newTimeInSeconds);
+  } else {
+    // Not playing — just convert the playhead position
+    const currentBeat = (currentTime / 60) * oldBpm;
+    const newTimeInSeconds = (currentBeat / newBpm) * 60;
+    audioEngine.setBpm(newBpm);
+    useDawStore.getState().setCurrentTime(newTimeInSeconds);
+  }
 };
 
 // Preview note methods for piano roll interaction

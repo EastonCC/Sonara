@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import useDawStore from '../state/dawStore';
 import { initAudio, play, pause, stop as engineStop, rewind as engineRewind, updateBpm } from '../engine/TransportSync';
 
 const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const MIN_BPM = 20;
+const MAX_BPM = 300;
 
 const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -100,14 +102,7 @@ const Transport: React.FC = () => {
           </select>
         </div>
         <div style={styles.controlGroup}>
-          <input
-            type="number"
-            value={bpm}
-            onChange={(e) => handleBpmChange(Number(e.target.value))}
-            style={styles.bpmInput}
-            min={20}
-            max={300}
-          />
+          <BpmControl bpm={bpm} onChange={handleBpmChange} />
           <span style={styles.controlLabel}>bpm</span>
         </div>
         <div style={styles.controlGroup}>
@@ -116,6 +111,107 @@ const Transport: React.FC = () => {
           </span>
         </div>
       </div>
+    </div>
+  );
+};
+
+// ─── BPM Control: drag to change, click to type ───
+
+const BpmControl: React.FC<{ bpm: number; onChange: (bpm: number) => void }> = ({
+  bpm,
+  onChange,
+}) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef({ startY: 0, startBpm: 0 });
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // ─── Drag handling ───
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      if (isEditing) return;
+      e.preventDefault();
+      dragRef.current = { startY: e.clientY, startBpm: bpm };
+      setIsDragging(true);
+    },
+    [bpm, isEditing]
+  );
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaY = dragRef.current.startY - e.clientY;
+      // 2px = 1 BPM
+      const deltaBpm = Math.round(deltaY / 2);
+      const newBpm = Math.max(MIN_BPM, Math.min(MAX_BPM, dragRef.current.startBpm + deltaBpm));
+      onChange(newBpm);
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, onChange]);
+
+  // ─── Text editing ───
+
+  const startEditing = () => {
+    setEditValue(String(bpm));
+    setIsEditing(true);
+    setTimeout(() => inputRef.current?.select(), 0);
+  };
+
+  const commitEdit = () => {
+    setIsEditing(false);
+    const parsed = parseInt(editValue, 10);
+    if (isNaN(parsed) || editValue.trim() === '') {
+      // Invalid — revert, don't set to 0
+      return;
+    }
+    onChange(Math.max(MIN_BPM, Math.min(MAX_BPM, parsed)));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      commitEdit();
+    } else if (e.key === 'Escape') {
+      setIsEditing(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <input
+        ref={inputRef}
+        value={editValue}
+        onChange={(e) => setEditValue(e.target.value)}
+        onBlur={commitEdit}
+        onKeyDown={handleKeyDown}
+        style={styles.bpmInput}
+        autoFocus
+      />
+    );
+  }
+
+  return (
+    <div
+      onMouseDown={handleMouseDown}
+      onDoubleClick={startEditing}
+      style={{
+        ...styles.bpmDisplay,
+        cursor: isDragging ? 'ns-resize' : 'ns-resize',
+      }}
+    >
+      {bpm}
     </div>
   );
 };
@@ -209,7 +305,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '14px',
     cursor: 'pointer',
   },
-  bpmInput: {
+  bpmDisplay: {
     width: '60px',
     background: '#1a1a2e',
     border: '1px solid #3a3a5e',
@@ -219,6 +315,21 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '14px',
     textAlign: 'center' as const,
     fontFamily: "'Poppins', sans-serif",
+    userSelect: 'none',
+    fontWeight: 600,
+  },
+  bpmInput: {
+    width: '60px',
+    background: '#1a1a2e',
+    border: '1px solid #00d4ff',
+    color: '#ffffff',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    fontSize: '14px',
+    textAlign: 'center' as const,
+    fontFamily: "'Poppins', sans-serif",
+    outline: 'none',
+    fontWeight: 600,
   },
 };
 
