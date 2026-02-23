@@ -98,6 +98,17 @@ export const rewind = () => {
   }
 };
 
+// Seek: jump to a specific time in seconds
+export const seek = (timeInSeconds: number) => {
+  const { isPlaying, tracks, bpm } = useDawStore.getState();
+  audioEngine.stop();
+  useDawStore.getState().setCurrentTime(timeInSeconds);
+
+  if (isPlaying) {
+    audioEngine.play(tracks, bpm, timeInSeconds);
+  }
+};
+
 // Called when tracks/clips change during playback — reschedule
 export const reschedule = () => {
   const { isPlaying, tracks, bpm, currentTime } = useDawStore.getState();
@@ -123,6 +134,18 @@ export const previewNoteChange = (pitch: number, velocity?: number) => {
 
 export const previewNoteOff = () => {
   audioEngine.previewNoteOff();
+};
+
+export const previewNoteOffSingle = (pitch: number) => {
+  audioEngine.previewNoteOffSingle(pitch);
+};
+
+export const setPreviewRelease = (seconds: number) => {
+  audioEngine.setPreviewRelease(seconds);
+};
+
+export const rebuildPreviewSynth = (instrument: string) => {
+  audioEngine.rebuildPreviewSynth(instrument);
 };
 
 // Rebuild a track's synth when instrument changes

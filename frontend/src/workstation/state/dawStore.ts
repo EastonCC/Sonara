@@ -178,14 +178,18 @@ interface DawStore {
   // Piano Roll
   pianoRollClipId: number | null;
   pianoRollTrackId: number | null;
-  selectedNoteId: number | null;
+  selectedNoteIds: Set<number>;
   openPianoRoll: (clipId: number, trackId: number) => void;
   closePianoRoll: () => void;
-  selectNote: (noteId: number | null) => void;
+  selectNote: (noteId: number | null, addToSelection?: boolean) => void;
+  selectNotes: (noteIds: number[]) => void;
+  clearNoteSelection: () => void;
   addNote: (clipId: number, note: { pitch: number; startBeat: number; duration: number; velocity: number }) => void;
   moveNote: (clipId: number, noteId: number, newPitch: number, newStartBeat: number) => void;
+  moveSelectedNotes: (clipId: number, deltaPitch: number, deltaBeat: number) => void;
   resizeNote: (clipId: number, noteId: number, newDuration: number) => void;
   deleteNote: (clipId: number, noteId: number) => void;
+  deleteSelectedNotes: (clipId: number) => void;
   setNoteVelocity: (clipId: number, noteId: number, velocity: number) => void;
 
   // UI
@@ -368,12 +372,24 @@ const useDawStore = create<DawStore>((set) => ({
   // Piano Roll
   pianoRollClipId: null,
   pianoRollTrackId: null,
-  selectedNoteId: null,
+  selectedNoteIds: new Set<number>(),
   openPianoRoll: (clipId, trackId) =>
-    set({ pianoRollClipId: clipId, pianoRollTrackId: trackId, selectedNoteId: null }),
+    set({ pianoRollClipId: clipId, pianoRollTrackId: trackId, selectedNoteIds: new Set() }),
   closePianoRoll: () =>
-    set({ pianoRollClipId: null, pianoRollTrackId: null, selectedNoteId: null }),
-  selectNote: (noteId) => set({ selectedNoteId: noteId }),
+    set({ pianoRollClipId: null, pianoRollTrackId: null, selectedNoteIds: new Set() }),
+  selectNote: (noteId, addToSelection = false) =>
+    set((s) => {
+      if (noteId === null) return { selectedNoteIds: new Set() };
+      if (addToSelection) {
+        const next = new Set(s.selectedNoteIds);
+        if (next.has(noteId)) next.delete(noteId);
+        else next.add(noteId);
+        return { selectedNoteIds: next };
+      }
+      return { selectedNoteIds: new Set([noteId]) };
+    }),
+  selectNotes: (noteIds) => set({ selectedNoteIds: new Set(noteIds) }),
+  clearNoteSelection: () => set({ selectedNoteIds: new Set() }),
   addNote: (clipId, note) =>
     set((s) => ({
       tracks: s.tracks.map((t) => ({
@@ -393,7 +409,7 @@ const useDawStore = create<DawStore>((set) => ({
     })),
   moveNote: (clipId, noteId, newPitch, newStartBeat) =>
     set((s) => {
-      const snap = s.snapEnabled ? Math.round(newStartBeat * 4) / 4 : newStartBeat; // Snap to 16th notes
+      const snap = s.snapEnabled ? Math.round(newStartBeat * 4) / 4 : newStartBeat;
       const clampedBeat = Math.max(0, snap);
       const clampedPitch = Math.max(0, Math.min(127, Math.round(newPitch)));
       return {
@@ -406,6 +422,32 @@ const useDawStore = create<DawStore>((set) => ({
                   notes: c.notes.map((n) =>
                     n.id === noteId
                       ? { ...n, pitch: clampedPitch, startBeat: clampedBeat }
+                      : n
+                  ),
+                }
+              : c
+          ),
+        })),
+      };
+    }),
+  moveSelectedNotes: (clipId, deltaPitch, deltaBeat) =>
+    set((s) => {
+      const snapBeat = s.snapEnabled ? Math.round(deltaBeat * 4) / 4 : deltaBeat;
+      const roundedPitch = Math.round(deltaPitch);
+      return {
+        tracks: s.tracks.map((t) => ({
+          ...t,
+          clips: t.clips.map((c) =>
+            c.id === clipId
+              ? {
+                  ...c,
+                  notes: c.notes.map((n) =>
+                    s.selectedNoteIds.has(n.id)
+                      ? {
+                          ...n,
+                          pitch: Math.max(0, Math.min(127, n.pitch + roundedPitch)),
+                          startBeat: Math.max(0, n.startBeat + snapBeat),
+                        }
                       : n
                   ),
                 }
@@ -435,13 +477,29 @@ const useDawStore = create<DawStore>((set) => ({
       };
     }),
   deleteNote: (clipId, noteId) =>
+    set((s) => {
+      const next = new Set(s.selectedNoteIds);
+      next.delete(noteId);
+      return {
+        selectedNoteIds: next,
+        tracks: s.tracks.map((t) => ({
+          ...t,
+          clips: t.clips.map((c) =>
+            c.id === clipId
+              ? { ...c, notes: c.notes.filter((n) => n.id !== noteId) }
+              : c
+          ),
+        })),
+      };
+    }),
+  deleteSelectedNotes: (clipId) =>
     set((s) => ({
-      selectedNoteId: s.selectedNoteId === noteId ? null : s.selectedNoteId,
+      selectedNoteIds: new Set(),
       tracks: s.tracks.map((t) => ({
         ...t,
         clips: t.clips.map((c) =>
           c.id === clipId
-            ? { ...c, notes: c.notes.filter((n) => n.id !== noteId) }
+            ? { ...c, notes: c.notes.filter((n) => !s.selectedNoteIds.has(n.id)) }
             : c
         ),
       })),

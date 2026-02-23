@@ -29,7 +29,7 @@ class AudioEngine {
   // Preview synth for real-time note audition (piano roll dragging)
   private previewSynth: Tone.PolySynth | null = null;
   private previewGain: Tone.Gain | null = null;
-  private currentPreviewNote: string | null = null;
+  private activePreviewNotes: Set<string> = new Set();
 
   // Must be called from a user gesture (click/tap)
   async initialize(): Promise<void> {
@@ -145,27 +145,47 @@ class AudioEngine {
 
           // Convert beats to Tone.js time notation (bars:beats:sixteenths)
           const timeInSeconds = (absoluteBeat / bpm) * 60;
-
-          // Skip notes that are before our start position
-          if (timeInSeconds < startTime) return;
-
           const noteName = midiToNote(note.pitch);
           const durationInSeconds = (note.duration / bpm) * 60;
+          const noteEndTime = timeInSeconds + durationInSeconds;
           const velocity = velocityToGain(note.velocity);
 
-          const eventId = Tone.getTransport().schedule((time) => {
-            if (nodes.synth instanceof Tone.PolySynth) {
-              nodes.synth.triggerAttackRelease(
-                noteName,
-                durationInSeconds,
-                time,
-                velocity
-              );
-            }
-          }, timeInSeconds);
+          // Note ends before our start position — skip entirely
+          if (noteEndTime <= startTime) return;
 
-          nodes.scheduledEvents.push(eventId);
-          this.scheduledEvents.push(eventId);
+          if (timeInSeconds < startTime) {
+            // Note is mid-play at seek position — play the remaining portion immediately
+            const remainingDuration = noteEndTime - startTime;
+
+            const eventId = Tone.getTransport().schedule((time) => {
+              if (nodes.synth instanceof Tone.PolySynth) {
+                nodes.synth.triggerAttackRelease(
+                  noteName,
+                  remainingDuration,
+                  time,
+                  velocity
+                );
+              }
+            }, startTime);
+
+            nodes.scheduledEvents.push(eventId);
+            this.scheduledEvents.push(eventId);
+          } else {
+            // Note starts in the future — schedule normally
+            const eventId = Tone.getTransport().schedule((time) => {
+              if (nodes.synth instanceof Tone.PolySynth) {
+                nodes.synth.triggerAttackRelease(
+                  noteName,
+                  durationInSeconds,
+                  time,
+                  velocity
+                );
+              }
+            }, timeInSeconds);
+
+            nodes.scheduledEvents.push(eventId);
+            this.scheduledEvents.push(eventId);
+          }
         });
       });
     });
@@ -260,32 +280,55 @@ class AudioEngine {
       this.previewSynth = new Tone.PolySynth(Tone.Synth, {
         oscillator: { type: 'triangle' },
         envelope: {
-          attack: 0.01,
-          decay: 0.1,
+          attack: 0.02,
+          decay: 0.3,
           sustain: 0.4,
-          release: 0.15,
+          release: 0.6,
         },
       }).connect(this.previewGain);
     }
   }
 
-  // Play a preview note immediately (for clicking a note or starting a drag)
+  // Set the release time on the preview synth (for sustain mode)
+  setPreviewRelease(seconds: number): void {
+    this.ensurePreviewSynth();
+    if (this.previewSynth) {
+      this.previewSynth.set({ envelope: { release: seconds } });
+    }
+  }
+
+  // Rebuild the preview synth to match a track's instrument
+  rebuildPreviewSynth(instrument: string): void {
+    if (!this.isInitialized) return;
+
+    // Release and dispose old preview synth
+    if (this.previewSynth) {
+      this.activePreviewNotes.forEach((n) => this.previewSynth!.triggerRelease(n));
+      this.activePreviewNotes.clear();
+      this.previewSynth.dispose();
+      this.previewSynth = null;
+    }
+
+    // Create new one with the instrument's sound
+    if (!this.previewGain) {
+      this.previewGain = new Tone.Gain(0.5).toDestination();
+    }
+    this.previewSynth = this.createSynth(instrument as any, 'instrument');
+    this.previewSynth.connect(this.previewGain);
+  }
+
+  // Play a preview note (supports chords — multiple simultaneous notes)
   previewNoteOn(pitch: number, velocity: number = 100): void {
     if (!this.isInitialized) return;
     this.ensurePreviewSynth();
 
     const noteName = midiToNote(pitch);
 
-    // Release previous preview note if different
-    if (this.currentPreviewNote && this.currentPreviewNote !== noteName) {
-      this.previewSynth!.triggerRelease(this.currentPreviewNote);
-    }
+    // Don't re-trigger if already playing
+    if (this.activePreviewNotes.has(noteName)) return;
 
-    // Only trigger attack if it's a new note
-    if (this.currentPreviewNote !== noteName) {
-      this.previewSynth!.triggerAttack(noteName, undefined, velocityToGain(velocity));
-      this.currentPreviewNote = noteName;
-    }
+    this.previewSynth!.triggerAttack(noteName, undefined, velocityToGain(velocity));
+    this.activePreviewNotes.add(noteName);
   }
 
   // Update preview to a new pitch (while dragging — seamless pitch change)
@@ -293,21 +336,31 @@ class AudioEngine {
     if (!this.isInitialized || !this.previewSynth) return;
 
     const noteName = midiToNote(pitch);
-    if (this.currentPreviewNote === noteName) return; // Same note, skip
+    if (this.activePreviewNotes.has(noteName)) return;
 
-    // Release old, trigger new
-    if (this.currentPreviewNote) {
-      this.previewSynth.triggerRelease(this.currentPreviewNote);
-    }
+    // Release all current notes and play the new one
+    this.activePreviewNotes.forEach((n) => this.previewSynth!.triggerRelease(n));
+    this.activePreviewNotes.clear();
+
     this.previewSynth.triggerAttack(noteName, undefined, velocityToGain(velocity));
-    this.currentPreviewNote = noteName;
+    this.activePreviewNotes.add(noteName);
   }
 
-  // Stop preview note (on mouse up)
+  // Stop a specific preview note
+  previewNoteOffSingle(pitch: number): void {
+    if (!this.previewSynth) return;
+    const noteName = midiToNote(pitch);
+    if (this.activePreviewNotes.has(noteName)) {
+      this.previewSynth.triggerRelease(noteName);
+      this.activePreviewNotes.delete(noteName);
+    }
+  }
+
+  // Stop all preview notes
   previewNoteOff(): void {
-    if (!this.previewSynth || !this.currentPreviewNote) return;
-    this.previewSynth.triggerRelease(this.currentPreviewNote);
-    this.currentPreviewNote = null;
+    if (!this.previewSynth || this.activePreviewNotes.size === 0) return;
+    this.activePreviewNotes.forEach((n) => this.previewSynth!.triggerRelease(n));
+    this.activePreviewNotes.clear();
   }
 
   // Clean up everything
