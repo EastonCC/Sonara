@@ -1,17 +1,41 @@
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import useDawStore from './state/dawStore';
+import { initAudio, dispose } from './engine/TransportSync';
 import MenuBar from './components/MenuBar';
 import Transport from './components/Transport';
 import TrackList from './components/TrackList';
 import Timeline from './components/Timeline';
+import PianoRoll from './components/PianoRoll';
 
 const DAW = () => {
   const navigate = useNavigate();
   const { projectId } = useParams();
   const projectName = useDawStore((s) => s.projectName);
-  const isPlaying = useDawStore((s) => s.isPlaying);
-  const setCurrentTime = useDawStore((s) => s.setCurrentTime);
+  const pianoRollClipId = useDawStore((s) => s.pianoRollClipId);
+
+  const trackListRef = useRef<HTMLDivElement>(null);
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const isSyncing = useRef(false);
+
+  // Sync vertical scroll between track list and timeline
+  const handleTrackListScroll = useCallback(() => {
+    if (isSyncing.current) return;
+    isSyncing.current = true;
+    if (trackListRef.current && timelineRef.current) {
+      timelineRef.current.scrollTop = trackListRef.current.scrollTop;
+    }
+    isSyncing.current = false;
+  }, []);
+
+  const handleTimelineScroll = useCallback(() => {
+    if (isSyncing.current) return;
+    isSyncing.current = true;
+    if (trackListRef.current && timelineRef.current) {
+      trackListRef.current.scrollTop = timelineRef.current.scrollTop;
+    }
+    isSyncing.current = false;
+  }, []);
 
   useEffect(() => {
     document.title = `${projectName} | Sonara DAW`;
@@ -21,24 +45,33 @@ const DAW = () => {
     }
   }, [navigate, projectName]);
 
+  // Clean up audio engine on unmount
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setCurrentTime(useDawStore.getState().currentTime + 0.1);
-      }, 100);
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying, setCurrentTime]);
+    return () => dispose();
+  }, []);
+
+  // Initialize audio on first user interaction
+  const handleUserGesture = async () => {
+    await initAudio();
+    // Remove listener after first init
+    document.removeEventListener('click', handleUserGesture);
+  };
+
+  useEffect(() => {
+    document.addEventListener('click', handleUserGesture);
+    return () => document.removeEventListener('click', handleUserGesture);
+  }, []);
 
   return (
     <div style={styles.container}>
       <MenuBar />
       <Transport />
       <div style={styles.mainContent}>
-        <TrackList />
-        <Timeline />
+        <TrackList scrollRef={trackListRef} onScroll={handleTrackListScroll} />
+        <Timeline scrollRef={timelineRef} onScroll={handleTimelineScroll} />
       </div>
+
+      {pianoRollClipId && <PianoRoll />}
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');

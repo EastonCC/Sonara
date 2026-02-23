@@ -1,5 +1,6 @@
 import React from 'react';
 import useDawStore from '../state/dawStore';
+import { initAudio, play, pause, stop as engineStop, rewind as engineRewind, updateBpm } from '../engine/TransportSync';
 
 const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -18,11 +19,34 @@ const Transport: React.FC = () => {
   const timeSignature = useDawStore((s) => s.timeSignature);
   const musicalKey = useDawStore((s) => s.musicalKey);
   const togglePlay = useDawStore((s) => s.togglePlay);
-  const stop = useDawStore((s) => s.stop);
-  const rewind = useDawStore((s) => s.rewind);
   const toggleRecord = useDawStore((s) => s.toggleRecord);
   const setBpm = useDawStore((s) => s.setBpm);
   const setMusicalKey = useDawStore((s) => s.setMusicalKey);
+
+  const handleTogglePlay = async () => {
+    await initAudio(); // Ensure audio context is started
+    if (isPlaying) {
+      pause();
+    } else {
+      play();
+    }
+    togglePlay(); // Update store state
+  };
+
+  const handleStop = () => {
+    engineStop();
+    useDawStore.getState().stop(); // Reset store state
+  };
+
+  const handleRewind = () => {
+    engineRewind();
+    useDawStore.getState().rewind();
+  };
+
+  const handleBpmChange = (newBpm: number) => {
+    setBpm(newBpm);
+    updateBpm(newBpm);
+  };
 
   return (
     <div style={styles.transportBar}>
@@ -35,16 +59,16 @@ const Transport: React.FC = () => {
       </div>
 
       <div style={styles.transportCenter}>
-        <button onClick={rewind} style={styles.transportButton}>
+        <button onClick={handleRewind} style={styles.transportButton}>
           ⏮
         </button>
         <button
-          onClick={togglePlay}
+          onClick={handleTogglePlay}
           style={{ ...styles.transportButton, ...styles.playButton }}
         >
           {isPlaying ? '⏸' : '▶'}
         </button>
-        <button onClick={stop} style={styles.transportButton}>
+        <button onClick={handleStop} style={styles.transportButton}>
           ⏭
         </button>
         <button
@@ -79,7 +103,7 @@ const Transport: React.FC = () => {
           <input
             type="number"
             value={bpm}
-            onChange={(e) => setBpm(Number(e.target.value))}
+            onChange={(e) => handleBpmChange(Number(e.target.value))}
             style={styles.bpmInput}
             min={20}
             max={300}

@@ -1,21 +1,43 @@
-import React, { useState } from 'react';
-import { Track } from '../models/types';
+import React from 'react';
+import { InstrumentPreset } from '../models/types';
 import useDawStore from '../state/dawStore';
+import { rebuildTrackSynth } from '../engine/TransportSync';
 
 interface TrackRowProps {
   trackId: number;
 }
+
+const INSTRUMENT_LABELS: Record<InstrumentPreset, string> = {
+  triangle: 'Triangle',
+  sawtooth: 'Sawtooth',
+  square: 'Square',
+  sine: 'Sine',
+  fm: 'FM Synth',
+  am: 'AM Synth',
+  fat: 'Fat Saw',
+  membrane: 'Membrane',
+  metal: 'Metal',
+  pluck: 'Pluck',
+};
 
 const TrackRow: React.FC<TrackRowProps> = ({ trackId }) => {
   const track = useDawStore((s) => s.tracks.find((t) => t.id === trackId));
   const toggleMute = useDawStore((s) => s.toggleMute);
   const toggleSolo = useDawStore((s) => s.toggleSolo);
   const deleteTrack = useDawStore((s) => s.deleteTrack);
-  const [showVolumeDropdown, setShowVolumeDropdown] = useState(false);
+  const setTrackInstrument = useDawStore((s) => s.setTrackInstrument);
 
   if (!track) return null;
 
   const trackIcon = track.type === 'audio' ? '🎤' : track.type === 'drums' ? '🥁' : '🎹';
+
+  const handleInstrumentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newInstrument = e.target.value as InstrumentPreset;
+    setTrackInstrument(track.id, newInstrument);
+    // Rebuild the synth in the audio engine with the new preset
+    const updatedTrack = { ...track, instrument: newInstrument };
+    rebuildTrackSynth(updatedTrack);
+  };
 
   return (
     <div style={styles.trackRow}>
@@ -51,32 +73,22 @@ const TrackRow: React.FC<TrackRowProps> = ({ trackId }) => {
           </button>
         </div>
 
-        <div style={styles.trackVolumeRow}>
-          <div style={styles.volumeDropdown}>
-            <button
-              onClick={() => setShowVolumeDropdown(!showVolumeDropdown)}
-              style={styles.volumeDropdownButton}
+        {/* Instrument selector for instrument/drum tracks */}
+        {track.type !== 'audio' && (
+          <div style={styles.instrumentRow}>
+            <select
+              value={track.instrument}
+              onChange={handleInstrumentChange}
+              style={styles.instrumentSelect}
             >
-              Volume ▼
-            </button>
-            {showVolumeDropdown && (
-              <div style={styles.volumeDropdownMenu}>
-                <div
-                  style={styles.volumeDropdownItem}
-                  onClick={() => setShowVolumeDropdown(false)}
-                >
-                  Volume
-                </div>
-                <div
-                  style={styles.volumeDropdownItem}
-                  onClick={() => setShowVolumeDropdown(false)}
-                >
-                  Pan
-                </div>
-              </div>
-            )}
+              {Object.entries(INSTRUMENT_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -85,9 +97,10 @@ const TrackRow: React.FC<TrackRowProps> = ({ trackId }) => {
 const styles: { [key: string]: React.CSSProperties } = {
   trackRow: {
     display: 'flex',
-    padding: '12px',
+    padding: '8px 12px',
     borderBottom: '1px solid #2a2a4e',
-    minHeight: '80px',
+    height: '80px',
+    boxSizing: 'border-box',
   },
   trackControls: {
     display: 'flex',
@@ -156,41 +169,20 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '16px',
     padding: '4px',
   },
-  trackVolumeRow: {
+  instrumentRow: {
     display: 'flex',
     alignItems: 'center',
   },
-  volumeDropdown: {
-    position: 'relative' as const,
-  },
-  volumeDropdownButton: {
+  instrumentSelect: {
     background: '#252542',
     border: '1px solid #3a3a5e',
     color: '#ffffff',
-    padding: '6px 12px',
+    padding: '4px 8px',
     borderRadius: '4px',
-    fontSize: '12px',
+    fontSize: '11px',
     cursor: 'pointer',
-    width: '100%',
-    textAlign: 'left' as const,
     fontFamily: "'Poppins', sans-serif",
-  },
-  volumeDropdownMenu: {
-    position: 'absolute' as const,
-    top: '100%',
-    left: 0,
-    backgroundColor: '#ffffff',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    zIndex: 100,
-    minWidth: '100px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-  },
-  volumeDropdownItem: {
-    padding: '8px 12px',
-    fontSize: '12px',
-    color: '#333',
-    cursor: 'pointer',
+    width: '100%',
   },
 };
 

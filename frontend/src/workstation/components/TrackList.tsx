@@ -2,12 +2,17 @@ import React from 'react';
 import useDawStore from '../state/dawStore';
 import TrackRow from './TrackRow';
 
-const TrackList: React.FC = () => {
+interface TrackListProps {
+  scrollRef?: React.RefObject<HTMLDivElement>;
+  onScroll?: () => void;
+}
+
+const TrackList: React.FC<TrackListProps> = ({ scrollRef, onScroll }) => {
   const tracks = useDawStore((s) => s.tracks);
   const addTrack = useDawStore((s) => s.addTrack);
 
   return (
-    <div style={styles.trackList}>
+    <div style={styles.trackList} ref={scrollRef as any} onScroll={onScroll}>
       <div style={styles.addTrackRow}>
         <button onClick={addTrack} style={styles.addTrackButton}>
           + Add Track
@@ -38,8 +43,14 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '12px 16px',
+    padding: '0 16px',
+    height: '32px',
+    boxSizing: 'border-box',
     borderBottom: '1px solid #3a3a5e',
+    backgroundColor: '#252542',
+    position: 'sticky' as const,
+    top: 0,
+    zIndex: 10,
   },
   addTrackButton: {
     background: 'none',
