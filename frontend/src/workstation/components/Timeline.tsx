@@ -255,6 +255,61 @@ const Timeline: React.FC<TimelineProps> = ({ mode, trackId, showAutomation }) =>
     }
   };
 
+  const addAudioClip = useDawStore((s) => s.addAudioClip);
+
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (track.type !== 'audio') return;
+    const hasAudio = Array.from(e.dataTransfer.types).includes('Files');
+    if (!hasAudio) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    setDragOver(true);
+  };
+
+  const handleDragLeave = () => setDragOver(false);
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    if (track.type !== 'audio') return;
+
+    const file = e.dataTransfer.files[0];
+    if (!file || !file.type.startsWith('audio/')) return;
+
+    // Calculate drop position in beats
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const dropBeat = Math.max(0, snapEnabled ? Math.round(x / pixelsPerBeat) : x / pixelsPerBeat);
+
+    const url = URL.createObjectURL(file);
+
+    // Decode audio
+    const arrayBuffer = await file.arrayBuffer();
+    const audioCtx = new AudioContext();
+    const decoded = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+    audioCtx.close();
+
+    const durationBeats = (decoded.duration * bpm) / 60;
+
+    // Generate waveform peaks
+    const channelData = decoded.getChannelData(0);
+    const numPeaks = 200;
+    const samplesPerPeak = Math.floor(channelData.length / numPeaks);
+    const peaks: number[] = [];
+    for (let i = 0; i < numPeaks; i++) {
+      let max = 0;
+      for (let j = 0; j < samplesPerPeak; j++) {
+        const abs = Math.abs(channelData[i * samplesPerPeak + j] || 0);
+        if (abs > max) max = abs;
+      }
+      peaks.push(max);
+    }
+
+    addAudioClip(track.id, dropBeat, file.name.replace(/\.[^.]+$/, ''), durationBeats, url, peaks);
+  };
+
   const totalHeight = showAutomation ? 80 + AUTOMATION_LANE_HEIGHT : 80;
 
   return (
@@ -271,9 +326,20 @@ const Timeline: React.FC<TimelineProps> = ({ mode, trackId, showAutomation }) =>
 
       {/* Clips area — 80px */}
       <div
-        style={{ position: 'relative', height: '80px', overflow: 'hidden' }}
+        style={{
+          position: 'relative',
+          height: '80px',
+          overflow: 'hidden',
+          backgroundColor: dragOver ? 'rgba(0, 212, 255, 0.1)' : 'transparent',
+          outline: dragOver ? '2px dashed #00d4ff' : 'none',
+          outlineOffset: '-2px',
+          transition: 'background-color 0.15s',
+        }}
         onClick={handleLaneClick}
         onDoubleClick={handleLaneDoubleClick}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
 
       {/* Clips */}
