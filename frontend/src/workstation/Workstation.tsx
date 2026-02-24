@@ -36,6 +36,24 @@ const DAW = () => {
     return () => document.removeEventListener('click', handleUserGesture);
   }, []);
 
+  const undo = useDawStore((s) => s.undo);
+  const redo = useDawStore((s) => s.redo);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo]);
+
   return (
     <div style={styles.container}>
       <MenuBar />
@@ -58,10 +76,6 @@ const DAW = () => {
             {/* Track list header — sticky left + sticky top */}
             <div style={styles.trackListHeader}>
               <button onClick={addTrack} style={styles.addTrackButton}>+ Add Track</button>
-              <div style={styles.trackTools}>
-                <button style={styles.toolButton}>○</button>
-                <button style={styles.toolButton}>✎</button>
-              </div>
             </div>
             {/* Timeline header (bar numbers) */}
             <div style={styles.timelineHeaderCell}>

@@ -8,9 +8,25 @@ let unsubscribeTracks: (() => void) | null = null;
 // Sync the Zustand store's currentTime with Tone.Transport using rAF
 const startPlayheadSync = () => {
   const update = () => {
-    const { isPlaying, setCurrentTime } = useDawStore.getState();
+    const { isPlaying, setCurrentTime, loopEnabled, loopStart, loopEnd, bpm } = useDawStore.getState();
     if (isPlaying) {
-      setCurrentTime(audioEngine.getCurrentTime());
+      const currentTime = audioEngine.getCurrentTime();
+
+      // Loop check: if past loop end, jump back to loop start
+      if (loopEnabled && loopEnd > loopStart) {
+        const loopEndTime = (loopEnd / bpm) * 60;
+        const loopStartTime = (loopStart / bpm) * 60;
+        if (currentTime >= loopEndTime) {
+          const { tracks } = useDawStore.getState();
+          audioEngine.stop();
+          audioEngine.play(tracks, bpm, loopStartTime);
+          setCurrentTime(loopStartTime);
+          animationFrameId = requestAnimationFrame(update);
+          return;
+        }
+      }
+
+      setCurrentTime(currentTime);
       animationFrameId = requestAnimationFrame(update);
     }
   };

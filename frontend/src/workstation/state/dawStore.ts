@@ -5,144 +5,92 @@ const TRACK_COLORS = ['#e74c3c', '#9b59b6', '#3498db', '#2ecc71', '#f1c40f', '#e
 
 const DEFAULT_TRACKS: Track[] = [
   {
-    id: 1,
-    name: 'Main Vocals',
-    type: 'audio',
-    instrument: 'triangle',
-    color: '#e74c3c',
-    muted: false,
-    solo: false,
-    volume: 80,
-    pan: 0,
+    id: 1, name: 'Main Vocals', type: 'audio', instrument: 'triangle',
+    color: '#e74c3c', muted: false, solo: false, volume: 80, pan: 0,
     clips: [{ id: 1, name: 'Vocal Take 1', startBeat: 0, duration: 16, notes: [] }],
   },
   {
-    id: 2,
-    name: 'Keys',
-    type: 'instrument',
-    instrument: 'triangle',
-    color: '#9b59b6',
-    muted: false,
-    solo: false,
-    volume: 75,
-    pan: -20,
+    id: 2, name: 'Keys', type: 'instrument', instrument: 'triangle',
+    color: '#9b59b6', muted: false, solo: false, volume: 75, pan: -20,
     clips: [
-      {
-        id: 2,
-        name: 'Chord Progression',
-        startBeat: 4,
-        duration: 8,
-        notes: [
-          // C major chord
-          { id: 100, pitch: 60, startBeat: 0, duration: 2, velocity: 100 },
-          { id: 101, pitch: 64, startBeat: 0, duration: 2, velocity: 90 },
-          { id: 102, pitch: 67, startBeat: 0, duration: 2, velocity: 85 },
-          // F major chord
-          { id: 103, pitch: 65, startBeat: 2, duration: 2, velocity: 100 },
-          { id: 104, pitch: 69, startBeat: 2, duration: 2, velocity: 90 },
-          { id: 105, pitch: 72, startBeat: 2, duration: 2, velocity: 85 },
-          // G major chord
-          { id: 106, pitch: 67, startBeat: 4, duration: 2, velocity: 100 },
-          { id: 107, pitch: 71, startBeat: 4, duration: 2, velocity: 90 },
-          { id: 108, pitch: 74, startBeat: 4, duration: 2, velocity: 85 },
-          // C major chord
-          { id: 109, pitch: 60, startBeat: 6, duration: 2, velocity: 100 },
-          { id: 110, pitch: 64, startBeat: 6, duration: 2, velocity: 90 },
-          { id: 111, pitch: 67, startBeat: 6, duration: 2, velocity: 85 },
-        ],
-      },
-      {
-        id: 3,
-        name: 'Melody',
-        startBeat: 14,
-        duration: 6,
-        notes: [
-          { id: 120, pitch: 72, startBeat: 0, duration: 1, velocity: 100 },
-          { id: 121, pitch: 74, startBeat: 1, duration: 1, velocity: 95 },
-          { id: 122, pitch: 76, startBeat: 2, duration: 2, velocity: 100 },
-          { id: 123, pitch: 74, startBeat: 4, duration: 1, velocity: 90 },
-          { id: 124, pitch: 72, startBeat: 5, duration: 1, velocity: 95 },
-        ],
-      },
+      { id: 2, name: 'Chord Progression', startBeat: 4, duration: 8, notes: [
+        { id: 201, pitch: 60, startBeat: 0, duration: 2, velocity: 80 },
+        { id: 202, pitch: 64, startBeat: 0, duration: 2, velocity: 75 },
+        { id: 203, pitch: 67, startBeat: 0, duration: 2, velocity: 75 },
+        { id: 204, pitch: 62, startBeat: 2, duration: 2, velocity: 80 },
+        { id: 205, pitch: 65, startBeat: 2, duration: 2, velocity: 75 },
+        { id: 206, pitch: 69, startBeat: 2, duration: 2, velocity: 75 },
+        { id: 207, pitch: 64, startBeat: 4, duration: 2, velocity: 80 },
+        { id: 208, pitch: 67, startBeat: 4, duration: 2, velocity: 75 },
+        { id: 209, pitch: 71, startBeat: 4, duration: 2, velocity: 75 },
+        { id: 210, pitch: 60, startBeat: 6, duration: 2, velocity: 80 },
+        { id: 211, pitch: 64, startBeat: 6, duration: 2, velocity: 75 },
+        { id: 212, pitch: 67, startBeat: 6, duration: 2, velocity: 75 },
+      ] },
+      { id: 3, name: 'Melody', startBeat: 14, duration: 6, notes: [
+        { id: 301, pitch: 72, startBeat: 0, duration: 1, velocity: 90 },
+        { id: 302, pitch: 74, startBeat: 1, duration: 0.5, velocity: 85 },
+        { id: 303, pitch: 76, startBeat: 1.5, duration: 1.5, velocity: 85 },
+        { id: 304, pitch: 74, startBeat: 3, duration: 1, velocity: 80 },
+        { id: 305, pitch: 72, startBeat: 4, duration: 2, velocity: 90 },
+      ] },
     ],
   },
   {
-    id: 3,
-    name: 'Synth Line',
-    type: 'instrument',
-    instrument: 'sawtooth',
-    color: '#f1c40f',
-    muted: false,
-    solo: false,
-    volume: 70,
-    pan: 30,
-    clips: [
-      {
-        id: 4,
-        name: 'Synth Line',
-        startBeat: 8,
-        duration: 12,
-        notes: [
-          { id: 130, pitch: 48, startBeat: 0, duration: 1, velocity: 100 },
-          { id: 131, pitch: 48, startBeat: 2, duration: 1, velocity: 100 },
-          { id: 132, pitch: 53, startBeat: 4, duration: 1, velocity: 100 },
-          { id: 133, pitch: 53, startBeat: 6, duration: 1, velocity: 100 },
-          { id: 134, pitch: 55, startBeat: 8, duration: 2, velocity: 100 },
-          { id: 135, pitch: 48, startBeat: 10, duration: 2, velocity: 100 },
-        ],
-      },
-    ],
+    id: 3, name: 'Synth Line', type: 'instrument', instrument: 'sawtooth',
+    color: '#f1c40f', muted: false, solo: false, volume: 70, pan: 30,
+    clips: [{ id: 4, name: 'Synth Line', startBeat: 8, duration: 12, notes: [
+      { id: 401, pitch: 48, startBeat: 0, duration: 3, velocity: 90 },
+      { id: 402, pitch: 48, startBeat: 4, duration: 2, velocity: 85 },
+      { id: 403, pitch: 50, startBeat: 7, duration: 3, velocity: 85 },
+      { id: 404, pitch: 48, startBeat: 10, duration: 2, velocity: 90 },
+    ] }],
   },
   {
-    id: 4,
-    name: 'Drums',
-    type: 'drums',
-    instrument: 'membrane',
-    color: '#3498db',
-    muted: false,
-    solo: false,
-    volume: 85,
-    pan: 0,
-    clips: [
-      {
-        id: 5,
-        name: 'Beat',
-        startBeat: 12,
-        duration: 10,
-        notes: [
-          // Kick on beats (C2 = 36)
-          { id: 140, pitch: 36, startBeat: 0, duration: 0.5, velocity: 127 },
-          { id: 141, pitch: 36, startBeat: 2, duration: 0.5, velocity: 127 },
-          { id: 142, pitch: 36, startBeat: 4, duration: 0.5, velocity: 127 },
-          { id: 143, pitch: 36, startBeat: 6, duration: 0.5, velocity: 127 },
-          { id: 144, pitch: 36, startBeat: 8, duration: 0.5, velocity: 127 },
-          // Snare on 2 and 4 (D2 = 38)
-          { id: 145, pitch: 38, startBeat: 1, duration: 0.5, velocity: 110 },
-          { id: 146, pitch: 38, startBeat: 3, duration: 0.5, velocity: 110 },
-          { id: 147, pitch: 38, startBeat: 5, duration: 0.5, velocity: 110 },
-          { id: 148, pitch: 38, startBeat: 7, duration: 0.5, velocity: 110 },
-          { id: 149, pitch: 38, startBeat: 9, duration: 0.5, velocity: 110 },
-          // Hi-hat on every beat (F#2 = 42)
-          { id: 150, pitch: 42, startBeat: 0, duration: 0.25, velocity: 80 },
-          { id: 151, pitch: 42, startBeat: 0.5, duration: 0.25, velocity: 60 },
-          { id: 152, pitch: 42, startBeat: 1, duration: 0.25, velocity: 80 },
-          { id: 153, pitch: 42, startBeat: 1.5, duration: 0.25, velocity: 60 },
-          { id: 154, pitch: 42, startBeat: 2, duration: 0.25, velocity: 80 },
-          { id: 155, pitch: 42, startBeat: 2.5, duration: 0.25, velocity: 60 },
-          { id: 156, pitch: 42, startBeat: 3, duration: 0.25, velocity: 80 },
-          { id: 157, pitch: 42, startBeat: 3.5, duration: 0.25, velocity: 60 },
-        ],
-      },
-    ],
+    id: 4, name: 'Drums', type: 'drums', instrument: 'membrane',
+    color: '#3498db', muted: false, solo: false, volume: 85, pan: 0,
+    clips: [{ id: 5, name: 'Beat', startBeat: 12, duration: 10, notes: [
+      { id: 501, pitch: 36, startBeat: 0, duration: 0.5, velocity: 100 },
+      { id: 502, pitch: 38, startBeat: 1, duration: 0.5, velocity: 90 },
+      { id: 503, pitch: 36, startBeat: 2, duration: 0.5, velocity: 100 },
+      { id: 504, pitch: 38, startBeat: 3, duration: 0.5, velocity: 90 },
+      { id: 505, pitch: 42, startBeat: 0, duration: 0.25, velocity: 70 },
+      { id: 506, pitch: 42, startBeat: 0.5, duration: 0.25, velocity: 60 },
+      { id: 507, pitch: 42, startBeat: 1, duration: 0.25, velocity: 70 },
+      { id: 508, pitch: 42, startBeat: 1.5, duration: 0.25, velocity: 60 },
+      { id: 509, pitch: 42, startBeat: 2, duration: 0.25, velocity: 70 },
+      { id: 510, pitch: 42, startBeat: 2.5, duration: 0.25, velocity: 60 },
+      { id: 511, pitch: 42, startBeat: 3, duration: 0.25, velocity: 70 },
+      { id: 512, pitch: 42, startBeat: 3.5, duration: 0.25, velocity: 60 },
+      { id: 513, pitch: 36, startBeat: 4, duration: 0.5, velocity: 100 },
+      { id: 514, pitch: 36, startBeat: 4.5, duration: 0.5, velocity: 80 },
+      { id: 515, pitch: 38, startBeat: 5, duration: 0.5, velocity: 90 },
+      { id: 516, pitch: 36, startBeat: 6, duration: 0.5, velocity: 100 },
+      { id: 517, pitch: 38, startBeat: 7, duration: 0.5, velocity: 90 },
+      { id: 518, pitch: 36, startBeat: 8, duration: 1, velocity: 100 },
+    ] }],
   },
 ];
 
+// ─── Undo/Redo History ───
+
+const MAX_HISTORY = 100;
+interface HistoryEntry { tracks: Track[]; label: string }
+let undoStack: HistoryEntry[] = [];
+let redoStack: HistoryEntry[] = [];
+const cloneTracks = (tracks: Track[]): Track[] => JSON.parse(JSON.stringify(tracks));
+const pushUndo = (tracks: Track[], label: string) => {
+  undoStack.push({ tracks: cloneTracks(tracks), label });
+  if (undoStack.length > MAX_HISTORY) undoStack.shift();
+  redoStack = [];
+};
+
+// ─── Store Interface ───
+
 interface DawStore {
-  // Project
   projectName: string;
   setProjectName: (name: string) => void;
 
-  // Transport
   isPlaying: boolean;
   isRecording: boolean;
   currentTime: number;
@@ -157,7 +105,12 @@ interface DawStore {
   rewind: () => void;
   stop: () => void;
 
-  // Tracks
+  loopEnabled: boolean;
+  loopStart: number;
+  loopEnd: number;
+  toggleLoop: () => void;
+  setLoopRegion: (start: number, end: number) => void;
+
   tracks: Track[];
   addTrack: () => void;
   deleteTrack: (trackId: number) => void;
@@ -166,7 +119,6 @@ interface DawStore {
   setTrackVolume: (trackId: number, volume: number) => void;
   setTrackInstrument: (trackId: number, instrument: InstrumentPreset) => void;
 
-  // Clips
   selectedClipId: number | null;
   selectClip: (clipId: number | null) => void;
   addClip: (trackId: number, startBeat: number) => void;
@@ -175,7 +127,6 @@ interface DawStore {
   deleteClip: (clipId: number) => void;
   snapToBeat: (beat: number) => number;
 
-  // Piano Roll
   pianoRollClipId: number | null;
   pianoRollTrackId: number | null;
   selectedNoteIds: Set<number>;
@@ -192,19 +143,35 @@ interface DawStore {
   deleteSelectedNotes: (clipId: number) => void;
   setNoteVelocity: (clipId: number, noteId: number, velocity: number) => void;
 
-  // UI
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  undoLabel: string;
+  redoLabel: string;
+
   zoom: number;
   setZoom: (zoom: number) => void;
   snapEnabled: boolean;
   toggleSnap: () => void;
 }
 
-const useDawStore = create<DawStore>((set) => ({
-  // Project
+// Helper: wraps a tracks mutation with undo
+const withUndo = (
+  set: (fn: (s: DawStore) => Partial<DawStore>) => void,
+  label: string,
+  fn: (s: DawStore) => Partial<DawStore>
+) => {
+  set((s) => {
+    pushUndo(s.tracks, label);
+    return { ...fn(s), canUndo: true, canRedo: false, undoLabel: label, redoLabel: '' };
+  });
+};
+
+const useDawStore = create<DawStore>((set, get) => ({
   projectName: 'Untitled Project',
   setProjectName: (projectName) => set({ projectName }),
 
-  // Transport
   isPlaying: false,
   isRecording: false,
   currentTime: 0,
@@ -219,154 +186,120 @@ const useDawStore = create<DawStore>((set) => ({
   rewind: () => set({ currentTime: 0 }),
   stop: () => set({ isPlaying: false, currentTime: 0 }),
 
+  // Loop
+  loopEnabled: false,
+  loopStart: 0,
+  loopEnd: 0,
+  toggleLoop: () =>
+    set((s) => {
+      if (!s.loopEnabled) {
+        let start = s.loopStart;
+        let end = s.loopEnd;
+        if (start === 0 && end === 0) {
+          let lastBeat = 0;
+          s.tracks.forEach((t) =>
+            t.clips.forEach((c) => {
+              const clipEnd = c.startBeat + c.duration;
+              if (clipEnd > lastBeat) lastBeat = clipEnd;
+            })
+          );
+          end = lastBeat > 0 ? lastBeat : 16;
+        }
+        return { loopEnabled: true, loopStart: start, loopEnd: end };
+      }
+      return { loopEnabled: false };
+    }),
+  setLoopRegion: (start, end) =>
+    set({ loopStart: Math.min(start, end), loopEnd: Math.max(start, end) }),
+
   // Tracks
   tracks: DEFAULT_TRACKS,
-  addTrack: () =>
-    set((s) => ({
-      tracks: [
-        ...s.tracks,
-        {
-          id: Date.now(),
-          name: `Track ${s.tracks.length + 1}`,
-          type: 'instrument' as const,
-          instrument: 'triangle' as const,
-          color: TRACK_COLORS[s.tracks.length % TRACK_COLORS.length],
-          muted: false,
-          solo: false,
-          volume: 75,
-          pan: 0,
-          clips: [],
-        },
-      ],
-    })),
-  deleteTrack: (trackId) =>
-    set((s) => ({
-      tracks: s.tracks.filter((t) => t.id !== trackId),
-    })),
-  toggleMute: (trackId) =>
-    set((s) => ({
-      tracks: s.tracks.map((t) =>
-        t.id === trackId ? { ...t, muted: !t.muted } : t
-      ),
-    })),
-  toggleSolo: (trackId) =>
-    set((s) => ({
-      tracks: s.tracks.map((t) =>
-        t.id === trackId ? { ...t, solo: !t.solo } : t
-      ),
-    })),
-  setTrackVolume: (trackId, volume) =>
-    set((s) => ({
-      tracks: s.tracks.map((t) =>
-        t.id === trackId ? { ...t, volume } : t
-      ),
-    })),
-  setTrackInstrument: (trackId, instrument) =>
-    set((s) => ({
-      tracks: s.tracks.map((t) =>
-        t.id === trackId ? { ...t, instrument } : t
-      ),
-    })),
+  addTrack: () => withUndo(set, 'Add Track', (s) => ({
+    tracks: [...s.tracks, {
+      id: Date.now(), name: `Track ${s.tracks.length + 1}`,
+      type: 'instrument' as const, instrument: 'triangle' as const,
+      color: TRACK_COLORS[s.tracks.length % TRACK_COLORS.length],
+      muted: false, solo: false, volume: 75, pan: 0, clips: [],
+    }],
+  })),
+  deleteTrack: (trackId) => withUndo(set, 'Delete Track', (s) => ({
+    tracks: s.tracks.filter((t) => t.id !== trackId),
+  })),
+  toggleMute: (trackId) => set((s) => ({
+    tracks: s.tracks.map((t) => t.id === trackId ? { ...t, muted: !t.muted } : t),
+  })),
+  toggleSolo: (trackId) => set((s) => ({
+    tracks: s.tracks.map((t) => t.id === trackId ? { ...t, solo: !t.solo } : t),
+  })),
+  setTrackVolume: (trackId, volume) => set((s) => ({
+    tracks: s.tracks.map((t) => t.id === trackId ? { ...t, volume } : t),
+  })),
+  setTrackInstrument: (trackId, instrument) => withUndo(set, 'Change Instrument', (s) => ({
+    tracks: s.tracks.map((t) => t.id === trackId ? { ...t, instrument } : t),
+  })),
 
   // Clips
   selectedClipId: null,
   selectClip: (clipId) => set({ selectedClipId: clipId }),
-  addClip: (trackId, startBeat) =>
-    set((s) => {
-      const snap = s.snapEnabled ? s.snapToBeat(startBeat) : startBeat;
-      const newClipId = Date.now() + Math.floor(Math.random() * 1000);
-      return {
-        tracks: s.tracks.map((t) =>
-          t.id === trackId
-            ? {
-                ...t,
-                clips: [
-                  ...t.clips,
-                  {
-                    id: newClipId,
-                    name: t.type === 'drums' ? 'Beat' : 'New Clip',
-                    startBeat: Math.max(0, snap),
-                    duration: 4,
-                    notes: [],
-                  },
-                ],
-              }
-            : t
-        ),
-        selectedClipId: newClipId,
-      };
-    }),
-  moveClip: (clipId, newStartBeat, newTrackId) =>
-    set((s) => {
-      const snap = s.snapEnabled ? s.snapToBeat(newStartBeat) : newStartBeat;
-      const clampedBeat = Math.max(0, snap);
-
-      // If moving to a different track
-      if (newTrackId !== undefined) {
-        let movedClip: typeof s.tracks[0]['clips'][0] | null = null;
-
-        // Remove clip from current track
-        const tracksWithoutClip = s.tracks.map((t) => {
-          const clip = t.clips.find((c) => c.id === clipId);
-          if (clip) {
-            movedClip = { ...clip, startBeat: clampedBeat };
-            return { ...t, clips: t.clips.filter((c) => c.id !== clipId) };
-          }
-          return t;
-        });
-
-        // Add clip to target track
-        if (movedClip) {
-          return {
-            tracks: tracksWithoutClip.map((t) =>
-              t.id === newTrackId
-                ? { ...t, clips: [...t.clips, movedClip!] }
-                : t
-            ),
-          };
+  addClip: (trackId, startBeat) => withUndo(set, 'Add Clip', (s) => {
+    const snap = s.snapEnabled ? s.snapToBeat(startBeat) : startBeat;
+    const newClipId = Date.now() + Math.floor(Math.random() * 1000);
+    return {
+      tracks: s.tracks.map((t) => t.id === trackId ? {
+        ...t, clips: [...t.clips, {
+          id: newClipId, name: t.type === 'drums' ? 'Beat' : 'New Clip',
+          startBeat: Math.max(0, snap), duration: 4, notes: [],
+        }],
+      } : t),
+      selectedClipId: newClipId,
+    };
+  }),
+  moveClip: (clipId, newStartBeat, newTrackId) => set((s) => {
+    const snap = s.snapEnabled ? s.snapToBeat(newStartBeat) : newStartBeat;
+    const clampedBeat = Math.max(0, snap);
+    if (newTrackId !== undefined) {
+      let movedClip: typeof s.tracks[0]['clips'][0] | null = null;
+      const tracksWithoutClip = s.tracks.map((t) => {
+        const clip = t.clips.find((c) => c.id === clipId);
+        if (clip) {
+          movedClip = { ...clip, startBeat: clampedBeat };
+          return { ...t, clips: t.clips.filter((c) => c.id !== clipId) };
         }
-      }
-
-      // Same track — just update startBeat
-      return {
-        tracks: s.tracks.map((t) => ({
-          ...t,
-          clips: t.clips.map((c) =>
-            c.id === clipId ? { ...c, startBeat: clampedBeat } : c
+        return t;
+      });
+      if (movedClip) {
+        return {
+          tracks: tracksWithoutClip.map((t) =>
+            t.id === newTrackId ? { ...t, clips: [...t.clips, movedClip!] } : t
           ),
-        })),
-      };
-    }),
-  resizeClip: (clipId, newDuration, fromLeft = false) =>
-    set((s) => {
-      const clampedDuration = Math.max(1, newDuration);
-      return {
-        tracks: s.tracks.map((t) => ({
-          ...t,
-          clips: t.clips.map((c) => {
-            if (c.id !== clipId) return c;
-            if (fromLeft) {
-              // Dragging left edge: adjust startBeat and duration together
-              const delta = c.duration - clampedDuration;
-              return {
-                ...c,
-                startBeat: Math.max(0, c.startBeat + delta),
-                duration: clampedDuration,
-              };
-            }
-            return { ...c, duration: clampedDuration };
-          }),
-        })),
-      };
-    }),
-  deleteClip: (clipId) =>
-    set((s) => ({
-      selectedClipId: s.selectedClipId === clipId ? null : s.selectedClipId,
+        };
+      }
+    }
+    return {
       tracks: s.tracks.map((t) => ({
-        ...t,
-        clips: t.clips.filter((c) => c.id !== clipId),
+        ...t, clips: t.clips.map((c) => c.id === clipId ? { ...c, startBeat: clampedBeat } : c),
       })),
-    })),
+    };
+  }),
+  resizeClip: (clipId, newDuration, fromLeft = false) => set((s) => {
+    const clampedDuration = Math.max(1, newDuration);
+    return {
+      tracks: s.tracks.map((t) => ({
+        ...t, clips: t.clips.map((c) => {
+          if (c.id !== clipId) return c;
+          if (fromLeft) {
+            const delta = c.duration - clampedDuration;
+            return { ...c, startBeat: Math.max(0, c.startBeat + delta), duration: clampedDuration };
+          }
+          return { ...c, duration: clampedDuration };
+        }),
+      })),
+    };
+  }),
+  deleteClip: (clipId) => withUndo(set, 'Delete Clip', (s) => ({
+    selectedClipId: s.selectedClipId === clipId ? null : s.selectedClipId,
+    tracks: s.tracks.map((t) => ({ ...t, clips: t.clips.filter((c) => c.id !== clipId) })),
+  })),
   snapToBeat: (beat: number) => Math.round(beat),
 
   // Piano Roll
@@ -377,153 +310,121 @@ const useDawStore = create<DawStore>((set) => ({
     set({ pianoRollClipId: clipId, pianoRollTrackId: trackId, selectedNoteIds: new Set() }),
   closePianoRoll: () =>
     set({ pianoRollClipId: null, pianoRollTrackId: null, selectedNoteIds: new Set() }),
-  selectNote: (noteId, addToSelection = false) =>
-    set((s) => {
-      if (noteId === null) return { selectedNoteIds: new Set() };
-      if (addToSelection) {
-        const next = new Set(s.selectedNoteIds);
-        if (next.has(noteId)) next.delete(noteId);
-        else next.add(noteId);
-        return { selectedNoteIds: next };
-      }
-      return { selectedNoteIds: new Set([noteId]) };
-    }),
+  selectNote: (noteId, addToSelection = false) => set((s) => {
+    if (noteId === null) return { selectedNoteIds: new Set() };
+    if (addToSelection) {
+      const next = new Set(s.selectedNoteIds);
+      if (next.has(noteId)) next.delete(noteId); else next.add(noteId);
+      return { selectedNoteIds: next };
+    }
+    return { selectedNoteIds: new Set([noteId]) };
+  }),
   selectNotes: (noteIds) => set({ selectedNoteIds: new Set(noteIds) }),
   clearNoteSelection: () => set({ selectedNoteIds: new Set() }),
-  addNote: (clipId, note) =>
-    set((s) => ({
-      tracks: s.tracks.map((t) => ({
-        ...t,
-        clips: t.clips.map((c) =>
-          c.id === clipId
-            ? {
-                ...c,
-                notes: [
-                  ...c.notes,
-                  { id: Date.now() + Math.random(), ...note },
-                ],
-              }
-            : c
-        ),
-      })),
+  addNote: (clipId, note) => withUndo(set, 'Add Note', (s) => ({
+    tracks: s.tracks.map((t) => ({
+      ...t, clips: t.clips.map((c) => c.id === clipId ? {
+        ...c, notes: [...c.notes, { id: Date.now() + Math.random(), ...note }],
+      } : c),
     })),
-  moveNote: (clipId, noteId, newPitch, newStartBeat) =>
-    set((s) => {
-      const snap = s.snapEnabled ? Math.round(newStartBeat * 4) / 4 : newStartBeat;
-      const clampedBeat = Math.max(0, snap);
-      const clampedPitch = Math.max(0, Math.min(127, Math.round(newPitch)));
-      return {
-        tracks: s.tracks.map((t) => ({
-          ...t,
-          clips: t.clips.map((c) =>
-            c.id === clipId
-              ? {
-                  ...c,
-                  notes: c.notes.map((n) =>
-                    n.id === noteId
-                      ? { ...n, pitch: clampedPitch, startBeat: clampedBeat }
-                      : n
-                  ),
-                }
-              : c
-          ),
-        })),
-      };
-    }),
-  moveSelectedNotes: (clipId, deltaPitch, deltaBeat) =>
-    set((s) => {
-      const snapBeat = s.snapEnabled ? Math.round(deltaBeat * 4) / 4 : deltaBeat;
-      const roundedPitch = Math.round(deltaPitch);
-      return {
-        tracks: s.tracks.map((t) => ({
-          ...t,
-          clips: t.clips.map((c) =>
-            c.id === clipId
-              ? {
-                  ...c,
-                  notes: c.notes.map((n) =>
-                    s.selectedNoteIds.has(n.id)
-                      ? {
-                          ...n,
-                          pitch: Math.max(0, Math.min(127, n.pitch + roundedPitch)),
-                          startBeat: Math.max(0, n.startBeat + snapBeat),
-                        }
-                      : n
-                  ),
-                }
-              : c
-          ),
-        })),
-      };
-    }),
-  resizeNote: (clipId, noteId, newDuration) =>
-    set((s) => {
-      const snap = s.snapEnabled ? Math.round(newDuration * 4) / 4 : newDuration;
-      const clampedDuration = Math.max(0.25, snap);
-      return {
-        tracks: s.tracks.map((t) => ({
-          ...t,
-          clips: t.clips.map((c) =>
-            c.id === clipId
-              ? {
-                  ...c,
-                  notes: c.notes.map((n) =>
-                    n.id === noteId ? { ...n, duration: clampedDuration } : n
-                  ),
-                }
-              : c
-          ),
-        })),
-      };
-    }),
-  deleteNote: (clipId, noteId) =>
-    set((s) => {
-      const next = new Set(s.selectedNoteIds);
-      next.delete(noteId);
-      return {
-        selectedNoteIds: next,
-        tracks: s.tracks.map((t) => ({
-          ...t,
-          clips: t.clips.map((c) =>
-            c.id === clipId
-              ? { ...c, notes: c.notes.filter((n) => n.id !== noteId) }
-              : c
-          ),
-        })),
-      };
-    }),
-  deleteSelectedNotes: (clipId) =>
-    set((s) => ({
-      selectedNoteIds: new Set(),
+  })),
+  moveNote: (clipId, noteId, newPitch, newStartBeat) => set((s) => {
+    const snap = s.snapEnabled ? Math.round(newStartBeat * 4) / 4 : newStartBeat;
+    return {
       tracks: s.tracks.map((t) => ({
-        ...t,
-        clips: t.clips.map((c) =>
-          c.id === clipId
-            ? { ...c, notes: c.notes.filter((n) => !s.selectedNoteIds.has(n.id)) }
-            : c
-        ),
+        ...t, clips: t.clips.map((c) => c.id === clipId ? {
+          ...c, notes: c.notes.map((n) => n.id === noteId
+            ? { ...n, pitch: Math.max(0, Math.min(127, Math.round(newPitch))), startBeat: Math.max(0, snap) }
+            : n),
+        } : c),
       })),
-    })),
-  setNoteVelocity: (clipId, noteId, velocity) =>
-    set((s) => ({
+    };
+  }),
+  moveSelectedNotes: (clipId, deltaPitch, deltaBeat) => set((s) => {
+    const snapBeat = s.snapEnabled ? Math.round(deltaBeat * 4) / 4 : deltaBeat;
+    const roundedPitch = Math.round(deltaPitch);
+    return {
       tracks: s.tracks.map((t) => ({
-        ...t,
-        clips: t.clips.map((c) =>
-          c.id === clipId
-            ? {
-                ...c,
-                notes: c.notes.map((n) =>
-                  n.id === noteId
-                    ? { ...n, velocity: Math.max(1, Math.min(127, velocity)) }
-                    : n
-                ),
-              }
-            : c
-        ),
+        ...t, clips: t.clips.map((c) => c.id === clipId ? {
+          ...c, notes: c.notes.map((n) => s.selectedNoteIds.has(n.id) ? {
+            ...n,
+            pitch: Math.max(0, Math.min(127, n.pitch + roundedPitch)),
+            startBeat: Math.max(0, n.startBeat + snapBeat),
+          } : n),
+        } : c),
       })),
+    };
+  }),
+  resizeNote: (clipId, noteId, newDuration) => set((s) => {
+    const snap = s.snapEnabled ? Math.round(newDuration * 4) / 4 : newDuration;
+    return {
+      tracks: s.tracks.map((t) => ({
+        ...t, clips: t.clips.map((c) => c.id === clipId ? {
+          ...c, notes: c.notes.map((n) => n.id === noteId ? { ...n, duration: Math.max(0.25, snap) } : n),
+        } : c),
+      })),
+    };
+  }),
+  deleteNote: (clipId, noteId) => withUndo(set, 'Delete Note', (s) => {
+    const next = new Set(s.selectedNoteIds); next.delete(noteId);
+    return {
+      selectedNoteIds: next,
+      tracks: s.tracks.map((t) => ({
+        ...t, clips: t.clips.map((c) => c.id === clipId
+          ? { ...c, notes: c.notes.filter((n) => n.id !== noteId) } : c),
+      })),
+    };
+  }),
+  deleteSelectedNotes: (clipId) => withUndo(set, 'Delete Notes', (s) => ({
+    selectedNoteIds: new Set(),
+    tracks: s.tracks.map((t) => ({
+      ...t, clips: t.clips.map((c) => c.id === clipId
+        ? { ...c, notes: c.notes.filter((n) => !s.selectedNoteIds.has(n.id)) } : c),
     })),
+  })),
+  setNoteVelocity: (clipId, noteId, velocity) => withUndo(set, 'Change Velocity', (s) => ({
+    tracks: s.tracks.map((t) => ({
+      ...t, clips: t.clips.map((c) => c.id === clipId ? {
+        ...c, notes: c.notes.map((n) => n.id === noteId
+          ? { ...n, velocity: Math.max(1, Math.min(127, velocity)) } : n),
+      } : c),
+    })),
+  })),
 
-  // UI
+  // Undo/Redo
+  undo: () => {
+    if (undoStack.length === 0) return;
+    const current = get();
+    const entry = undoStack.pop()!;
+    redoStack.push({ tracks: cloneTracks(current.tracks), label: entry.label });
+    const prevLabel = undoStack.length > 0 ? undoStack[undoStack.length - 1].label : '';
+    set({
+      tracks: entry.tracks,
+      canUndo: undoStack.length > 0,
+      canRedo: true,
+      undoLabel: prevLabel,
+      redoLabel: entry.label,
+    });
+  },
+  redo: () => {
+    if (redoStack.length === 0) return;
+    const current = get();
+    const entry = redoStack.pop()!;
+    undoStack.push({ tracks: cloneTracks(current.tracks), label: entry.label });
+    const nextLabel = redoStack.length > 0 ? redoStack[redoStack.length - 1].label : '';
+    set({
+      tracks: entry.tracks,
+      canUndo: true,
+      canRedo: redoStack.length > 0,
+      undoLabel: entry.label,
+      redoLabel: nextLabel,
+    });
+  },
+  canUndo: false,
+  canRedo: false,
+  undoLabel: '',
+  redoLabel: '',
+
   zoom: 1,
   setZoom: (zoom) => set({ zoom }),
   snapEnabled: true,

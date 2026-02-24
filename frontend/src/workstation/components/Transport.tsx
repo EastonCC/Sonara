@@ -50,14 +50,46 @@ const Transport: React.FC = () => {
     updateBpm(newBpm);
   };
 
+  const undo = useDawStore((s) => s.undo);
+  const redo = useDawStore((s) => s.redo);
+  const canUndo = useDawStore((s) => s.canUndo);
+  const canRedo = useDawStore((s) => s.canRedo);
+  const undoLabel = useDawStore((s) => s.undoLabel);
+  const redoLabel = useDawStore((s) => s.redoLabel);
+  const loopEnabled = useDawStore((s) => s.loopEnabled);
+  const toggleLoop = useDawStore((s) => s.toggleLoop);
+
   return (
     <div style={styles.transportBar}>
       <div style={styles.transportLeft}>
-        <button style={styles.transportIcon}>↶</button>
-        <button style={styles.transportIcon}>↷</button>
+        <button
+          onClick={undo}
+          style={{
+            ...styles.transportIcon,
+            color: canUndo ? '#ffffff' : '#555',
+            cursor: canUndo ? 'pointer' : 'default',
+          }}
+          title={canUndo ? `Undo: ${undoLabel} (Ctrl+Z)` : 'Nothing to undo'}
+        >↶</button>
+        <button
+          onClick={redo}
+          style={{
+            ...styles.transportIcon,
+            color: canRedo ? '#ffffff' : '#555',
+            cursor: canRedo ? 'pointer' : 'default',
+          }}
+          title={canRedo ? `Redo: ${redoLabel} (Ctrl+Y)` : 'Nothing to redo'}
+        >↷</button>
         <span style={styles.transportDivider}></span>
-        <button style={styles.transportIcon}>🔁</button>
-        <button style={styles.transportIcon}>⊞</button>
+        <button
+          onClick={toggleLoop}
+          style={{
+            ...styles.transportIcon,
+            color: loopEnabled ? '#00d4ff' : '#ffffff',
+            backgroundColor: loopEnabled ? 'rgba(0,212,255,0.15)' : 'transparent',
+          }}
+          title="Loop mode"
+        >🔁</button>
       </div>
 
       <div style={styles.transportCenter}>

@@ -51,18 +51,68 @@ const Timeline: React.FC<TimelineProps> = ({ mode, trackId }) => {
   // ═══════════════════════════════════════════
   // HEADER MODE — bar numbers + playhead
   // ═══════════════════════════════════════════
+  const loopEnabled = useDawStore((s) => s.loopEnabled);
+  const loopStart = useDawStore((s) => s.loopStart);
+  const loopEnd = useDawStore((s) => s.loopEnd);
+  const setLoopRegion = useDawStore((s) => s.setLoopRegion);
+
   if (mode === 'header') {
+    const handleHeaderMouseDown = (e: React.MouseEvent) => {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const startX = e.clientX - rect.left;
+      const startBeat = startX / pixelsPerBeat;
+      let didDrag = false;
+
+      const handleMouseMove = (me: MouseEvent) => {
+        const currentX = me.clientX - rect.left;
+        const currentBeat = currentX / pixelsPerBeat;
+        if (Math.abs(currentX - startX) > 5) {
+          didDrag = true;
+          setLoopRegion(
+            Math.round(Math.min(startBeat, currentBeat)),
+            Math.round(Math.max(startBeat, currentBeat))
+          );
+        }
+      };
+
+      const handleMouseUp = (me: MouseEvent) => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+        if (!didDrag) {
+          // Simple click — seek
+          const x = me.clientX - rect.left;
+          const beat = x / pixelsPerBeat;
+          seekTo((beat / bpm) * 60);
+        }
+      };
+
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    };
+
+    const loopLeftPx = loopStart * pixelsPerBeat;
+    const loopWidthPx = (loopEnd - loopStart) * pixelsPerBeat;
+
     return (
       <div
         style={{ width: `${totalWidth}px`, height: '100%', position: 'relative', cursor: 'pointer' }}
-        onClick={(e) => {
-          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const beat = x / pixelsPerBeat;
-          const timeInSeconds = (beat / bpm) * 60;
-          seekTo(timeInSeconds);
-        }}
+        onMouseDown={handleHeaderMouseDown}
       >
+        {/* Loop region highlight */}
+        {loopEnabled && loopEnd > loopStart && (
+          <div style={{
+            position: 'absolute',
+            left: `${loopLeftPx}px`,
+            width: `${loopWidthPx}px`,
+            top: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,212,255,0.15)',
+            borderLeft: '2px solid #00d4ff',
+            borderRight: '2px solid #00d4ff',
+            pointerEvents: 'none',
+            zIndex: 5,
+          }} />
+        )}
         {/* Playhead */}
         <div style={{ ...styles.playhead, left: `${playheadX}px` }} />
         {/* Bar markers */}
