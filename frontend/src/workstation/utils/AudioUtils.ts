@@ -11,15 +11,25 @@ export async function decodeAudioFile(file: File, bpm: number): Promise<AudioFil
   const url = URL.createObjectURL(file);
 
   const arrayBuffer = await file.arrayBuffer();
-  const audioCtx = new AudioContext();
-  const decoded = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
-  audioCtx.close();
+
+  let decoded: AudioBuffer;
+  try {
+    // Try OfflineAudioContext first (doesn't need user gesture)
+    const offlineCtx = new OfflineAudioContext(2, 44100, 44100);
+    decoded = await offlineCtx.decodeAudioData(arrayBuffer.slice(0));
+  } catch {
+    // Fallback to regular AudioContext
+    const audioCtx = new AudioContext();
+    await audioCtx.resume();
+    decoded = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+    audioCtx.close();
+  }
 
   const durationBeats = (decoded.duration * bpm) / 60;
 
-  // Generate waveform peaks
+  // Generate waveform peaks (high resolution for zoom)
   const channelData = decoded.getChannelData(0);
-  const numPeaks = 200;
+  const numPeaks = 500;
   const samplesPerPeak = Math.floor(channelData.length / numPeaks);
   const peaks: number[] = [];
   for (let i = 0; i < numPeaks; i++) {

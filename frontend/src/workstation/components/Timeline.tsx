@@ -9,7 +9,7 @@ const TOTAL_BARS = 32;
 const RESIZE_HANDLE_WIDTH = 8;
 const AUTOMATION_LANE_HEIGHT = 60;
 
-// Lightweight waveform renderer for audio clips
+// Waveform renderer for audio clips — smooth, colored, zoom-aware
 const WaveformPreview: React.FC<{
   peaks: number[];
   color: string;
@@ -22,15 +22,22 @@ const WaveformPreview: React.FC<{
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || widthPx <= 0) return;
+    if (!canvas || widthPx <= 0 || peaks.length === 0) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const w = widthPx - 8;
-    const h = 50;
-    canvas.width = Math.max(1, Math.floor(w * 2));
-    canvas.height = h * 2;
-    ctx.scale(2, 2);
+    const padding = 4;
+    const w = Math.max(1, widthPx - padding * 2);
+    const h = 54;
+    const dpr = window.devicePixelRatio || 2;
+    // Browser canvas size limit — cap to prevent silent failure
+    const maxCanvasSize = 8192;
+    const scale = Math.min(dpr, maxCanvasSize / w, maxCanvasSize / h);
+    canvas.width = Math.floor(w * scale);
+    canvas.height = Math.floor(h * scale);
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+    ctx.scale(scale, scale);
     ctx.clearRect(0, 0, w, h);
 
     // Calculate which portion of peaks to show
@@ -41,16 +48,81 @@ const WaveformPreview: React.FC<{
     const endIdx = Math.min(peaks.length, Math.ceil(endFraction * peaks.length));
     const visiblePeaks = peaks.slice(startIdx, endIdx);
 
-    if (visiblePeaks.length === 0) return;
 
-    const barWidth = w / visiblePeaks.length;
     const mid = h / 2;
 
-    ctx.fillStyle = 'rgba(255,255,255,0.6)';
-    visiblePeaks.forEach((peak, i) => {
-      const barH = Math.max(1, peak * mid * 0.9);
-      ctx.fillRect(i * barWidth, mid - barH, Math.max(1, barWidth - 0.5), barH * 2);
-    });
+    // Interpolate peaks to pixel width for smooth rendering at any zoom
+    const numPoints = Math.max(visiblePeaks.length, Math.floor(w));
+    const interpolated: number[] = [];
+    for (let i = 0; i < numPoints; i++) {
+      const srcIdx = (i / numPoints) * visiblePeaks.length;
+      const lo = Math.floor(srcIdx);
+      const hi = Math.min(lo + 1, visiblePeaks.length - 1);
+      const t = srcIdx - lo;
+      interpolated.push(visiblePeaks[lo] * (1 - t) + visiblePeaks[hi] * t);
+    }
+
+    // Waveform colors — use dark overlay + white highlights for contrast on any clip color
+    const fillGrad = ctx.createLinearGradient(0, 0, 0, h);
+    fillGrad.addColorStop(0, 'rgba(0, 0, 0, 0.02)');
+    fillGrad.addColorStop(0.3, 'rgba(0, 0, 0, 0.15)');
+    fillGrad.addColorStop(0.5, 'rgba(0, 0, 0, 0.25)');
+    fillGrad.addColorStop(0.7, 'rgba(0, 0, 0, 0.15)');
+    fillGrad.addColorStop(1, 'rgba(0, 0, 0, 0.02)');
+
+    // Upper half fill
+    ctx.beginPath();
+    ctx.moveTo(0, mid);
+    for (let i = 0; i < numPoints; i++) {
+      const x = (i / numPoints) * w;
+      const amp = interpolated[i] * mid * 0.85;
+      ctx.lineTo(x, mid - amp);
+    }
+    ctx.lineTo(w, mid);
+    ctx.closePath();
+    ctx.fillStyle = fillGrad;
+    ctx.fill();
+
+    // Lower half fill (mirror)
+    ctx.beginPath();
+    ctx.moveTo(0, mid);
+    for (let i = 0; i < numPoints; i++) {
+      const x = (i / numPoints) * w;
+      const amp = interpolated[i] * mid * 0.85;
+      ctx.lineTo(x, mid + amp);
+    }
+    ctx.lineTo(w, mid);
+    ctx.closePath();
+    ctx.fill();
+
+    // White outline strokes for definition
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.lineWidth = 0.8;
+
+    ctx.beginPath();
+    ctx.moveTo(0, mid);
+    for (let i = 0; i < numPoints; i++) {
+      const x = (i / numPoints) * w;
+      ctx.lineTo(x, mid - interpolated[i] * mid * 0.85);
+    }
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(0, mid);
+    for (let i = 0; i < numPoints; i++) {
+      const x = (i / numPoints) * w;
+      ctx.lineTo(x, mid + interpolated[i] * mid * 0.85);
+    }
+    ctx.stroke();
+
+    // Subtle center line
+    ctx.beginPath();
+    ctx.moveTo(0, mid);
+    ctx.lineTo(w, mid);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+
   }, [peaks, color, widthPx, audioOffset, audioDurationBeats, clipDurationBeats]);
 
   return (
@@ -58,10 +130,8 @@ const WaveformPreview: React.FC<{
       ref={canvasRef}
       style={{
         position: 'absolute',
-        top: '18px',
+        top: '12px',
         left: '4px',
-        width: `${Math.max(1, widthPx - 8)}px`,
-        height: 'calc(100% - 22px)',
         pointerEvents: 'none',
       }}
     />

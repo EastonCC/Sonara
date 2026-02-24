@@ -214,6 +214,7 @@ const DAW = () => {
                     opacity: isDragging ? 0.4 : isGrayed ? 0.35 : 1,
                     transition: 'opacity 0.15s',
                     position: 'relative',
+                    borderBottom: '1px solid #2a2a4e',
                   }}
                   data-track-row={track.id}
                   onDragOver={(e) => {
@@ -391,7 +392,6 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   bodyRow: {
     display: 'flex',
-    borderBottom: '1px solid #2a2a4e',
   },
   /* ─── Track list cells (sticky left) ─── */
   trackListHeader: {
