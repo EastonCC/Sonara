@@ -14,7 +14,9 @@ const ACTION_ICONS: Record<string, React.FC<{ color?: string }>> = {
   'Toggle Mute': Icons.Mute,
   'Toggle Solo': Icons.Solo,
   'Set Volume': Icons.Volume,
+  'Change Volume': Icons.Volume,
   'Set Pan': Icons.Pan,
+  'Change Pan': Icons.Pan,
   'Add Clip': Icons.Clip,
   'Delete Clip': Icons.Scissors,
   'Move Clip': Icons.Pan,
@@ -28,6 +30,11 @@ const ACTION_ICONS: Record<string, React.FC<{ color?: string }>> = {
   'Record Notes': Icons.Record,
   'Set BPM': Icons.Clock,
   'Change Effects': Icons.Knobs,
+  'Change Reverb': Icons.Reverb,
+  'Change Delay': Icons.Delay,
+  'Change Filter': Icons.Filter,
+  'Change Filter Type': Icons.Filter,
+  'Toggle Filter': Icons.Filter,
   'Quantize': Icons.Quantize,
   'Humanize': Icons.Humanize,
   'Add Audio Clip': Icons.Microphone,
@@ -88,10 +95,16 @@ const HistoryPanel: React.FC = () => {
 
   return (
     <div style={{
+      width: visible ? 240 : 0,
+      minWidth: visible ? 240 : 0,
+      overflow: 'hidden',
+      transition: 'width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+      flexShrink: 0,
+    }}>
+    <div style={{
       ...styles.panel,
-      transform: visible ? 'translateX(0)' : 'translateX(100%)',
       opacity: visible ? 1 : 0,
-      transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease',
+      transition: 'opacity 0.2s ease',
     }}>
       {/* Header */}
       <div style={styles.header}>
@@ -159,21 +172,18 @@ const HistoryPanel: React.FC = () => {
         Click to jump to any state
       </div>
     </div>
+    </div>
   );
 };
 
 const styles: Record<string, React.CSSProperties> = {
   panel: {
-    position: 'fixed',
-    right: 0,
-    top: 0,
-    bottom: 0,
     width: 240,
+    height: '100%',
     background: '#16162a',
     borderLeft: '1px solid #2a2a4a',
     display: 'flex',
     flexDirection: 'column',
-    zIndex: 90,
     fontFamily: "'Poppins', sans-serif",
     boxShadow: '-4px 0 12px rgba(0,0,0,0.3)',
   },

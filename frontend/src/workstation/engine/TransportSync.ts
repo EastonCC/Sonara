@@ -221,6 +221,10 @@ export const updateEffects = (track: Track) => {
   audioEngine.updateEffects(track);
 };
 
+export const updateTrackParams = (track: Track) => {
+  audioEngine.updateTrackParams(track);
+};
+
 // Rebuild a track's synth when instrument changes
 export const rebuildTrackSynth = (track: Track) => {
   audioEngine.rebuildTrackSynth(track);

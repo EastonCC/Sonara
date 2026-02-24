@@ -9,6 +9,7 @@ import TrackRow from './components/TrackRow';
 import Timeline from './components/Timeline';
 import PianoRoll from './components/PianoRoll';
 import HistoryPanel from './components/HistoryPanel';
+import MixerPanel from './components/MixerPanel';
 
 const TRACK_LIST_WIDTH = 280;
 const AUTOMATION_LANE_HEIGHT = 60;
@@ -146,6 +147,11 @@ const DAW = () => {
         e.preventDefault();
         state.toggleHistoryPanel();
       }
+      // Mixer toggle
+      if ((e.ctrlKey || e.metaKey) && e.key === 'm') {
+        e.preventDefault();
+        state.toggleMixer();
+      }
       // Save (placeholder)
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
@@ -166,8 +172,13 @@ const DAW = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const showHistoryPanel = useDawStore((s) => s.showHistoryPanel);
+
   return (
     <div style={styles.container}>
+      <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {/* Main content column */}
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
       <MenuBar />
       <Transport />
 
@@ -354,7 +365,11 @@ const DAW = () => {
       </div>
 
       {pianoRollClipId && <PianoRoll />}
-      <HistoryPanel />
+      <MixerPanel />
+        </div>
+        {/* History panel as flex sibling */}
+        <HistoryPanel />
+      </div>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');

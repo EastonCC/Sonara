@@ -124,8 +124,12 @@ interface DawStore {
   toggleMute: (trackId: number) => void;
   toggleSolo: (trackId: number) => void;
   setTrackVolume: (trackId: number, volume: number) => void;
+  setTrackPan: (trackId: number, pan: number) => void;
+  showMixer: boolean;
+  toggleMixer: () => void;
   setTrackInstrument: (trackId: number, instrument: InstrumentPreset) => void;
   setTrackEffects: (trackId: number, effects: Partial<TrackEffects>) => void;
+  pushUndoSnapshot: (label: string) => void;
   setVolumeAutomation: (trackId: number, points: AutomationPoint[]) => void;
   addAutomationPoint: (trackId: number, point: AutomationPoint) => void;
   removeAutomationPoint: (trackId: number, index: number) => void;
@@ -299,15 +303,20 @@ const useDawStore = create<DawStore>((set, get) => ({
   setTrackColor: (trackId, color) => withUndo(set, 'Change Color', (s) => ({
     tracks: s.tracks.map((t) => t.id === trackId ? { ...t, color } : t),
   })),
-  toggleMute: (trackId) => set((s) => ({
+  toggleMute: (trackId) => withUndo(set, 'Toggle Mute', (s) => ({
     tracks: s.tracks.map((t) => t.id === trackId ? { ...t, muted: !t.muted } : t),
   })),
-  toggleSolo: (trackId) => set((s) => ({
+  toggleSolo: (trackId) => withUndo(set, 'Toggle Solo', (s) => ({
     tracks: s.tracks.map((t) => t.id === trackId ? { ...t, solo: !t.solo } : t),
   })),
   setTrackVolume: (trackId, volume) => set((s) => ({
     tracks: s.tracks.map((t) => t.id === trackId ? { ...t, volume } : t),
   })),
+  setTrackPan: (trackId, pan) => set((s) => ({
+    tracks: s.tracks.map((t) => t.id === trackId ? { ...t, pan: Math.max(-100, Math.min(100, pan)) } : t),
+  })),
+  showMixer: false,
+  toggleMixer: () => set((s) => ({ showMixer: !s.showMixer })),
   setTrackInstrument: (trackId, instrument) => withUndo(set, 'Change Instrument', (s) => ({
     tracks: s.tracks.map((t) => t.id === trackId ? { ...t, instrument } : t),
   })),
@@ -316,6 +325,10 @@ const useDawStore = create<DawStore>((set, get) => ({
       ? { ...t, effects: { ...(t.effects || DEFAULT_EFFECTS), ...effects } }
       : t),
   })),
+  pushUndoSnapshot: (label) => set((s) => {
+    pushUndo(s.tracks, label);
+    return { canUndo: true, canRedo: false, undoLabel: label, redoLabel: '' };
+  }),
   setVolumeAutomation: (trackId, points) => set((s) => ({
     tracks: s.tracks.map((t) => t.id === trackId ? { ...t, volumeAutomation: points } : t),
   })),

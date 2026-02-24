@@ -11,6 +11,7 @@ interface EffectsPanelProps {
 const EffectsPanel: React.FC<EffectsPanelProps> = ({ trackId }) => {
   const track = useDawStore((s) => s.tracks.find((t) => t.id === trackId));
   const setTrackEffects = useDawStore((s) => s.setTrackEffects);
+  const pushUndoSnapshot = useDawStore((s) => s.pushUndoSnapshot);
 
   if (!track) return null;
 
@@ -26,6 +27,10 @@ const EffectsPanel: React.FC<EffectsPanelProps> = ({ trackId }) => {
     updateEffects(updatedTrack);
   }, [trackId, track, fx, setTrackEffects]);
 
+  const snapshot = useCallback((label: string) => {
+    pushUndoSnapshot(label);
+  }, [pushUndoSnapshot]);
+
   return (
     <div style={styles.container}>
       <div style={styles.effectsGrid}>
@@ -39,6 +44,7 @@ const EffectsPanel: React.FC<EffectsPanelProps> = ({ trackId }) => {
             <label style={styles.knobLabel}>Mix</label>
             <input
               type="range" min={0} max={100} value={fx.reverbMix}
+              onMouseDown={() => snapshot('Change Reverb')}
               onChange={(e) => update({ reverbMix: Number(e.target.value) })}
               style={styles.slider}
             />
@@ -47,6 +53,7 @@ const EffectsPanel: React.FC<EffectsPanelProps> = ({ trackId }) => {
             <label style={styles.knobLabel}>Decay</label>
             <input
               type="range" min={1} max={100} value={fx.reverbDecay * 10}
+              onMouseDown={() => snapshot('Change Reverb')}
               onChange={(e) => update({ reverbDecay: Number(e.target.value) / 10 })}
               style={styles.slider}
             />
@@ -64,6 +71,7 @@ const EffectsPanel: React.FC<EffectsPanelProps> = ({ trackId }) => {
             <label style={styles.knobLabel}>Mix</label>
             <input
               type="range" min={0} max={100} value={fx.delayMix}
+              onMouseDown={() => snapshot('Change Delay')}
               onChange={(e) => update({ delayMix: Number(e.target.value) })}
               style={styles.slider}
             />
@@ -72,6 +80,7 @@ const EffectsPanel: React.FC<EffectsPanelProps> = ({ trackId }) => {
             <label style={styles.knobLabel}>Time</label>
             <input
               type="range" min={1} max={100} value={fx.delayTime * 100}
+              onMouseDown={() => snapshot('Change Delay')}
               onChange={(e) => update({ delayTime: Number(e.target.value) / 100 })}
               style={styles.slider}
             />
@@ -81,6 +90,7 @@ const EffectsPanel: React.FC<EffectsPanelProps> = ({ trackId }) => {
             <label style={styles.knobLabel}>Feedback</label>
             <input
               type="range" min={0} max={90} value={fx.delayFeedback}
+              onMouseDown={() => snapshot('Change Delay')}
               onChange={(e) => update({ delayFeedback: Number(e.target.value) })}
               style={styles.slider}
             />
@@ -93,7 +103,7 @@ const EffectsPanel: React.FC<EffectsPanelProps> = ({ trackId }) => {
           <div style={styles.effectHeader}>
             <span style={styles.effectTitle}><Icons.Filter color="#00d4ff" size={14} /> Filter</span>
             <button
-              onClick={() => update({ filterEnabled: !fx.filterEnabled })}
+              onClick={() => { snapshot('Toggle Filter'); update({ filterEnabled: !fx.filterEnabled }); }}
               style={{
                 ...styles.toggleBtn,
                 backgroundColor: fx.filterEnabled ? '#00d4ff' : '#3a3a5e',
@@ -109,7 +119,7 @@ const EffectsPanel: React.FC<EffectsPanelProps> = ({ trackId }) => {
               {(['lowpass', 'highpass', 'bandpass'] as const).map((type) => (
                 <button
                   key={type}
-                  onClick={() => update({ filterType: type })}
+                  onClick={() => { snapshot('Change Filter Type'); update({ filterType: type }); }}
                   style={{
                     ...styles.filterTypeBtn,
                     backgroundColor: fx.filterType === type ? '#3a3a5e' : 'transparent',
@@ -126,6 +136,7 @@ const EffectsPanel: React.FC<EffectsPanelProps> = ({ trackId }) => {
             <input
               type="range" min={0} max={100}
               value={Math.log10(fx.filterFreq / 20) / Math.log10(1000) * 100}
+              onMouseDown={() => snapshot('Change Filter')}
               onChange={(e) => {
                 const normalized = Number(e.target.value) / 100;
                 const freq = 20 * Math.pow(1000, normalized);
