@@ -93,39 +93,47 @@ const DAW = () => {
           </div>
 
           {/* ═══ Track rows ═══ */}
-          {tracks.map((track) => (
-            <React.Fragment key={track.id}>
-              <div style={{
-                ...styles.bodyRow,
-                height: automationOpen.has(track.id) ? `${80 + 60}px` : '80px',
-              }} data-track-row={track.id}>
+          {(() => {
+            const hasSolo = tracks.some((t) => t.solo);
+            return tracks.map((track) => {
+              const isGrayed = hasSolo && !track.solo;
+              return (
+              <React.Fragment key={track.id}>
                 <div style={{
-                  ...styles.trackListCell,
+                  ...styles.bodyRow,
                   height: automationOpen.has(track.id) ? `${80 + 60}px` : '80px',
-                }}>
-                  <div style={{ height: '80px' }}>
-                    <TrackRow
+                  opacity: isGrayed ? 0.35 : 1,
+                  transition: 'opacity 0.2s',
+                }} data-track-row={track.id}>
+                  <div style={{
+                    ...styles.trackListCell,
+                    height: automationOpen.has(track.id) ? `${80 + 60}px` : '80px',
+                  }}>
+                    <div style={{ height: '80px' }}>
+                      <TrackRow
+                        trackId={track.id}
+                        automationOpen={automationOpen.has(track.id)}
+                        onToggleAutomation={() => toggleAutomation(track.id)}
+                      />
+                    </div>
+                    {automationOpen.has(track.id) && (
+                      <div style={styles.automationLabel}>
+                        <span style={styles.automationLabelText}>Vol</span>
+                      </div>
+                    )}
+                  </div>
+                  <div style={styles.timelineCell}>
+                    <Timeline
+                      mode="track"
                       trackId={track.id}
-                      automationOpen={automationOpen.has(track.id)}
-                      onToggleAutomation={() => toggleAutomation(track.id)}
+                      showAutomation={automationOpen.has(track.id)}
                     />
                   </div>
-                  {automationOpen.has(track.id) && (
-                    <div style={styles.automationLabel}>
-                      <span style={styles.automationLabelText}>Vol</span>
-                    </div>
-                  )}
                 </div>
-                <div style={styles.timelineCell}>
-                  <Timeline
-                    mode="track"
-                    trackId={track.id}
-                    showAutomation={automationOpen.has(track.id)}
-                  />
-                </div>
-              </div>
-            </React.Fragment>
-          ))}
+              </React.Fragment>
+              );
+            });
+          })()}
         </div>
       </div>
 

@@ -354,6 +354,12 @@ class AudioEngine {
     this.clearSchedule();
     const currentTime = Tone.getTransport().seconds;
     this.schedulePlayback(tracks, bpm, currentTime);
+
+    // Start any audio clips that should already be playing
+    this._pendingAudioStarts.forEach(({ player, offset }) => {
+      if (player.loaded) player.start(Tone.now(), offset);
+    });
+    this._pendingAudioStarts = [];
   }
 
   // Start playback
