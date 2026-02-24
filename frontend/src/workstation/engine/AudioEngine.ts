@@ -689,6 +689,11 @@ class AudioEngine {
     // Don't re-trigger if already playing
     if (this.activePreviewNotes.has(noteName)) return;
 
+    // If it's a Sampler, check that buffers are loaded
+    if (this.previewSynth instanceof Tone.Sampler) {
+      if (!this.previewSynth.loaded) return; // silently skip — buffers still loading
+    }
+
     this.previewSynth!.triggerAttack(noteName, undefined, velocityToGain(velocity));
     this.activePreviewNotes.add(noteName);
   }
@@ -696,6 +701,7 @@ class AudioEngine {
   // Update preview to a new pitch (while dragging — seamless pitch change)
   previewNoteChange(pitch: number, velocity: number = 100): void {
     if (!this.isInitialized || !this.previewSynth) return;
+    if (this.previewSynth instanceof Tone.Sampler && !this.previewSynth.loaded) return;
 
     const noteName = midiToNote(pitch);
     if (this.activePreviewNotes.has(noteName)) return;

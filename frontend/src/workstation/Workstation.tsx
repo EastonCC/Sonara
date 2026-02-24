@@ -29,26 +29,51 @@ const DAW = () => {
   const reorderTrack = useDawStore((s) => s.reorderTrack);
   const addAudioClip = useDawStore((s) => s.addAudioClip);
   const bpm = useDawStore((s) => s.bpm);
+  const zoom = useDawStore((s) => s.zoom);
+  const timeSignature = useDawStore((s) => s.timeSignature);
 
   const handleEmptyAreaDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setEmptyDropHover(false);
 
     const file = e.dataTransfer.files[0];
-    if (!file || !file.type.startsWith('audio/')) return;
+    if (!file) return;
 
-    // Create a new audio track
-    addTrack('audio');
+    const isMidi = file.name.match(/\.(mid|midi)$/i);
 
-    // Wait a tick for the track to be created
-    await new Promise((r) => setTimeout(r, 0));
+    if (isMidi) {
+      // Import MIDI — create instrument tracks
+      try {
+        const { parseMidiFile, midiToClipNotes } = await import('./engine/MidiParser');
+        const buffer = await file.arrayBuffer();
+        const parsed = parseMidiFile(buffer);
 
-    const state = useDawStore.getState();
-    const newTrack = state.tracks[state.tracks.length - 1];
-    if (!newTrack || newTrack.type !== 'audio') return;
+        for (const midiTrack of parsed.tracks) {
+          const { notes, durationBeats } = midiToClipNotes(midiTrack, parsed.ticksPerBeat);
+          if (notes.length === 0) continue;
 
-    const data = await decodeAudioFile(file, bpm);
-    state.addAudioClip(newTrack.id, 0, data.name, data.durationBeats, data.url, data.peaks);
+          addTrack('instrument');
+          await new Promise((r) => setTimeout(r, 0));
+          const state = useDawStore.getState();
+          const newTrack = state.tracks[state.tracks.length - 1];
+          if (newTrack && newTrack.type !== 'audio') {
+            const clipName = midiTrack.name || file.name.replace(/\.(mid|midi)$/i, '');
+            state.importMidiClip(newTrack.id, 0, clipName, notes, durationBeats);
+          }
+        }
+      } catch (err) {
+        console.error('MIDI import failed:', err);
+      }
+    } else if (file.type.startsWith('audio/')) {
+      // Create a new audio track
+      addTrack('audio');
+      await new Promise((r) => setTimeout(r, 0));
+      const state = useDawStore.getState();
+      const newTrack = state.tracks[state.tracks.length - 1];
+      if (!newTrack || newTrack.type !== 'audio') return;
+      const data = await decodeAudioFile(file, bpm);
+      state.addAudioClip(newTrack.id, 0, data.name, data.durationBeats, data.url, data.peaks);
+    }
   };
 
   const toggleAutomation = (trackId: number) => {
@@ -67,6 +92,27 @@ const DAW = () => {
   }, [navigate, projectName]);
 
   useEffect(() => { return () => dispose(); }, []);
+
+  // Auto-scroll back when clips are deleted and viewport is past content
+  const prevFurthestRef = useRef(0);
+  useEffect(() => {
+    const beatsPerBar = timeSignature.numerator;
+    const pixelsPerBeat = 50 * zoom;
+    const furthestBeat = tracks.reduce((max, t) =>
+      t.clips.reduce((m, c) => Math.max(m, c.startBeat + c.duration), max), 0);
+
+    // Only act when content shrinks (clip deleted)
+    if (furthestBeat < prevFurthestRef.current) {
+      const scrollEl = document.querySelector('[data-scroll-container]');
+      if (scrollEl) {
+        const newMaxPx = (furthestBeat + 4 * beatsPerBar) * pixelsPerBeat;
+        if (scrollEl.scrollLeft > newMaxPx) {
+          scrollEl.scrollTo({ left: Math.max(0, newMaxPx - scrollEl.clientWidth / 2), behavior: 'smooth' });
+        }
+      }
+    }
+    prevFurthestRef.current = furthestBeat;
+  }, [tracks, zoom, timeSignature]);
 
   const handleUserGesture = async () => {
     await initAudio();
@@ -356,9 +402,9 @@ const DAW = () => {
             onDrop={handleEmptyAreaDrop}
           >
             {emptyDropHover ? (
-              <span style={styles.emptyDropText}>Drop audio file to create new track</span>
+              <span style={styles.emptyDropText}>Drop file to create new track</span>
             ) : (
-              <span style={styles.emptyDropHint}>Drag audio files here to add tracks</span>
+              <span style={styles.emptyDropHint}>Drag audio or MIDI files here to add tracks</span>
             )}
           </div>
         </div>

@@ -284,15 +284,43 @@ export async function exportToWav(): Promise<void> {
   downloadBlob(wav, filename);
 }
 
-// Export as MP3 (falls back to WAV if lamejs unavailable)
-export async function exportToMp3(): Promise<void> {
-  // Check if lamejs is available (loaded via CDN)
-  const lamejs = (window as any).lamejs;
+// Dynamically load lamejs from CDN (cached after first load)
+let lamejsPromise: Promise<any> | null = null;
+function loadLamejs(): Promise<any> {
+  if (lamejsPromise) return lamejsPromise;
+  lamejsPromise = new Promise((resolve, reject) => {
+    // Check if already loaded
+    if ((window as any).lamejs) {
+      resolve((window as any).lamejs);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js';
+    script.onload = () => {
+      const lame = (window as any).lamejs || (window as any).Lame || (window as any).lame;
+      if (lame) {
+        resolve(lame);
+      } else {
+        reject(new Error('lamejs loaded but not available on window'));
+      }
+    };
+    script.onerror = () => {
+      lamejsPromise = null;
+      reject(new Error('Failed to load lamejs from CDN'));
+    };
+    document.head.appendChild(script);
+  });
+  return lamejsPromise;
+}
 
-  if (!lamejs) {
-    // Fallback: just export WAV with a note
-    console.warn('lamejs not available, exporting as WAV instead');
-    alert('MP3 encoding library not loaded. Exporting as WAV instead.');
+// Export as MP3
+export async function exportToMp3(): Promise<void> {
+  let lamejs: any;
+  try {
+    lamejs = await loadLamejs();
+  } catch (err) {
+    console.warn('lamejs not available, exporting as WAV instead', err);
+    alert('MP3 encoding library could not be loaded. Exporting as WAV instead.');
     return exportToWav();
   }
 

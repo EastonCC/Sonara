@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import useDawStore from '../state/dawStore';
 import { exportToWav, exportToMp3 } from '../engine/ExportEngine';
+import { parseMidiFile, midiToClipNotes } from '../engine/MidiParser';
 
 // ─── Modal Component ───
 
@@ -298,6 +299,61 @@ const MenuBar: React.FC = () => {
     setIsExporting(false);
   };
 
+  const handleImportMidi = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.mid,.midi';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      try {
+        const buffer = await file.arrayBuffer();
+        const parsed = parseMidiFile(buffer);
+        const state = useDawStore.getState();
+
+        // Find first instrument track, or create one
+        let targetTrack = state.tracks.find((t) => t.type === 'instrument' || t.type === 'drums');
+        if (!targetTrack) {
+          state.addTrack('instrument');
+          await new Promise((r) => setTimeout(r, 0));
+          const newState = useDawStore.getState();
+          targetTrack = newState.tracks[newState.tracks.length - 1];
+        }
+
+        if (!targetTrack) return;
+
+        // Import each MIDI track as a separate clip
+        // If multiple tracks in the MIDI, import to multiple DAW tracks
+        const dawTracks = useDawStore.getState().tracks.filter((t) => t.type !== 'audio');
+
+        for (let i = 0; i < parsed.tracks.length; i++) {
+          const midiTrack = parsed.tracks[i];
+          const { notes, durationBeats } = midiToClipNotes(midiTrack, parsed.ticksPerBeat);
+
+          if (notes.length === 0) continue;
+
+          // Use existing instrument track or create new one
+          let track = dawTracks[i];
+          if (!track) {
+            useDawStore.getState().addTrack('instrument');
+            await new Promise((r) => setTimeout(r, 0));
+            const updated = useDawStore.getState();
+            track = updated.tracks[updated.tracks.length - 1];
+          }
+
+          if (track) {
+            const clipName = midiTrack.name || file.name.replace(/\.(mid|midi)$/i, '');
+            useDawStore.getState().importMidiClip(track.id, 0, clipName, notes, durationBeats);
+          }
+        }
+      } catch (err) {
+        console.error('MIDI import failed:', err);
+        alert('Failed to import MIDI file. The file may be corrupted or in an unsupported format.');
+      }
+    };
+    input.click();
+  };
+
   const menus: { def: MenuDef; ref: React.RefObject<HTMLButtonElement | null> }[] = [
     {
       ref: fileRef,
@@ -305,6 +361,8 @@ const MenuBar: React.FC = () => {
         label: 'File',
         items: [
           { label: 'Save Project', shortcut: 'Ctrl+S' },
+          { divider: true, label: '' },
+          { label: 'Import MIDI File', action: handleImportMidi },
           { divider: true, label: '' },
           { label: 'Export as WAV', action: handleExportWav, disabled: isExporting },
           { label: 'Export as MP3', action: handleExportMp3, disabled: isExporting },

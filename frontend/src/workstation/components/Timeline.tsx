@@ -3,9 +3,10 @@ import useDawStore from '../state/dawStore';
 import { Clip } from '../models/types';
 import { seek as seekTo } from '../engine/TransportSync';
 import { decodeAudioFile } from '../utils/AudioUtils';
+import { parseMidiFile, midiToClipNotes } from '../engine/MidiParser';
 import AutomationLane from './AutomationLane';
 
-const TOTAL_BARS = 32;
+const MIN_BARS = 32;
 const RESIZE_HANDLE_WIDTH = 8;
 const AUTOMATION_LANE_HEIGHT = 60;
 
@@ -177,7 +178,10 @@ const Timeline: React.FC<TimelineProps> = ({ mode, trackId, showAutomation }) =>
   const beatsPerBar = timeSignature.numerator;
   const pixelsPerBeat = 50 * zoom;
   const trackHeight = 80;
-  const totalWidth = TOTAL_BARS * beatsPerBar * pixelsPerBeat;
+  const furthestBeat = tracks.reduce((max, t) =>
+    t.clips.reduce((m, c) => Math.max(m, c.startBeat + c.duration), max), 0);
+  const totalBars = Math.max(MIN_BARS, Math.ceil(furthestBeat / beatsPerBar) + 8);
+  const totalWidth = totalBars * beatsPerBar * pixelsPerBeat;
 
   const playheadX = (currentTime / 60) * bpm * pixelsPerBeat;
 
@@ -249,7 +253,7 @@ const Timeline: React.FC<TimelineProps> = ({ mode, trackId, showAutomation }) =>
         {/* Playhead */}
         <div style={{ ...styles.playhead, left: `${playheadX}px` }} />
         {/* Bar markers */}
-        {Array.from({ length: TOTAL_BARS + 1 }).map((_, i) => (
+        {Array.from({ length: totalBars + 1 }).map((_, i) => (
           <div
             key={i}
             style={{
@@ -331,9 +335,8 @@ const Timeline: React.FC<TimelineProps> = ({ mode, trackId, showAutomation }) =>
   const [dragOver, setDragOver] = useState(false);
 
   const handleDragOver = (e: React.DragEvent) => {
-    if (track.type !== 'audio') return;
-    const hasAudio = Array.from(e.dataTransfer.types).includes('Files');
-    if (!hasAudio) return;
+    const hasFiles = Array.from(e.dataTransfer.types).includes('Files');
+    if (!hasFiles) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
     setDragOver(true);
@@ -344,18 +347,37 @@ const Timeline: React.FC<TimelineProps> = ({ mode, trackId, showAutomation }) =>
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(false);
-    if (track.type !== 'audio') return;
 
     const file = e.dataTransfer.files[0];
-    if (!file || !file.type.startsWith('audio/')) return;
+    if (!file) return;
 
-    // Calculate drop position in beats
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = e.clientX - rect.left;
     const dropBeat = Math.max(0, snapEnabled ? Math.round(x / pixelsPerBeat) : x / pixelsPerBeat);
 
-    const data = await decodeAudioFile(file, bpm);
-    addAudioClip(track.id, dropBeat, data.name, data.durationBeats, data.url, data.peaks);
+    const isMidi = file.name.match(/\.(mid|midi)$/i);
+
+    if (isMidi && track.type !== 'audio') {
+      // Import MIDI to instrument/drums track
+      try {
+        const buffer = await file.arrayBuffer();
+        const parsed = parseMidiFile(buffer);
+        if (parsed.tracks.length > 0) {
+          const midiTrack = parsed.tracks[0]; // Use first track with notes
+          const { notes, durationBeats } = midiToClipNotes(midiTrack, parsed.ticksPerBeat);
+          if (notes.length > 0) {
+            const clipName = midiTrack.name || file.name.replace(/\.(mid|midi)$/i, '');
+            useDawStore.getState().importMidiClip(track.id, dropBeat, clipName, notes, durationBeats);
+          }
+        }
+      } catch (err) {
+        console.error('MIDI import failed:', err);
+      }
+    } else if (!isMidi && track.type === 'audio' && file.type.startsWith('audio/')) {
+      // Import audio to audio track
+      const data = await decodeAudioFile(file, bpm);
+      addAudioClip(track.id, dropBeat, data.name, data.durationBeats, data.url, data.peaks);
+    }
   };
 
   const totalHeight = showAutomation ? 80 + AUTOMATION_LANE_HEIGHT : 80;

@@ -138,6 +138,7 @@ interface DawStore {
   selectClip: (clipId: number | null) => void;
   addClip: (trackId: number, startBeat: number) => void;
   addAudioClip: (trackId: number, startBeat: number, name: string, durationBeats: number, audioFileUrl: string, waveformPeaks: number[]) => void;
+  importMidiClip: (trackId: number, startBeat: number, name: string, notes: { pitch: number; startBeat: number; duration: number; velocity: number }[], durationBeats: number) => void;
   moveClip: (clipId: number, newStartBeat: number, newTrackId?: number) => void;
   resizeClip: (clipId: number, newDuration: number, fromLeft?: boolean) => void;
   deleteClip: (clipId: number) => void;
@@ -378,6 +379,32 @@ const useDawStore = create<DawStore>((set, get) => ({
             startBeat: Math.max(0, startBeat), duration: durationBeats,
             notes: [], audioFileUrl, waveformPeaks,
             audioOffset: 0, audioDurationBeats: durationBeats,
+          }],
+        } : t),
+        selectedClipId: newClipId,
+      };
+    }),
+  importMidiClip: (trackId, startBeat, name, notes, durationBeats) =>
+    withUndo(set, 'Import MIDI', (s) => {
+      const track = s.tracks.find((t) => t.id === trackId);
+      if (!track || track.type === 'audio') return {};
+      const newClipId = Date.now() + Math.floor(Math.random() * 1000);
+      const midiNotes = notes.map((n, i) => ({
+        id: newClipId * 1000 + i,
+        pitch: n.pitch,
+        startBeat: n.startBeat,
+        duration: n.duration,
+        velocity: n.velocity,
+      }));
+      return {
+        tracks: s.tracks.map((t) => t.id === trackId ? {
+          ...t,
+          clips: [...t.clips, {
+            id: newClipId,
+            name,
+            startBeat: Math.max(0, startBeat),
+            duration: Math.max(1, durationBeats),
+            notes: midiNotes,
           }],
         } : t),
         selectedClipId: newClipId,
