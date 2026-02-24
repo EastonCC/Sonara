@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import useDawStore from './state/dawStore';
 import { initAudio, dispose, play as enginePlay, pause as enginePause } from './engine/TransportSync';
+import { decodeAudioFile } from './utils/AudioUtils';
 import MenuBar from './components/MenuBar';
 import Transport from './components/Transport';
 import TrackRow from './components/TrackRow';
@@ -22,7 +23,31 @@ const DAW = () => {
   const [automationOpen, setAutomationOpen] = useState<Set<number>>(new Set());
   const [dragTrackIdx, setDragTrackIdx] = useState<number | null>(null);
   const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
+  const [emptyDropHover, setEmptyDropHover] = useState(false);
   const reorderTrack = useDawStore((s) => s.reorderTrack);
+  const addAudioClip = useDawStore((s) => s.addAudioClip);
+  const bpm = useDawStore((s) => s.bpm);
+
+  const handleEmptyAreaDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setEmptyDropHover(false);
+
+    const file = e.dataTransfer.files[0];
+    if (!file || !file.type.startsWith('audio/')) return;
+
+    // Create a new audio track
+    addTrack('audio');
+
+    // Wait a tick for the track to be created
+    await new Promise((r) => setTimeout(r, 0));
+
+    const state = useDawStore.getState();
+    const newTrack = state.tracks[state.tracks.length - 1];
+    if (!newTrack || newTrack.type !== 'audio') return;
+
+    const data = await decodeAudioFile(file, bpm);
+    state.addAudioClip(newTrack.id, 0, data.name, data.durationBeats, data.url, data.peaks);
+  };
 
   const toggleAutomation = (trackId: number) => {
     setAutomationOpen((prev) => {
@@ -289,6 +314,35 @@ const DAW = () => {
               );
             });
           })()}
+
+          {/* ═══ Empty area drop zone for audio files ═══ */}
+          <div
+            style={{
+              ...styles.emptyDropZone,
+              ...(emptyDropHover ? styles.emptyDropZoneActive : {}),
+            }}
+            onDragOver={(e) => {
+              // Only respond to file drags, not track reorder drags
+              if (dragTrackIdx !== null) return;
+              if (e.dataTransfer.types.includes('Files')) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+                setEmptyDropHover(true);
+              }
+            }}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                setEmptyDropHover(false);
+              }
+            }}
+            onDrop={handleEmptyAreaDrop}
+          >
+            {emptyDropHover ? (
+              <span style={styles.emptyDropText}>Drop audio file to create new track</span>
+            ) : (
+              <span style={styles.emptyDropHint}>Drag audio files here to add tracks</span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -435,6 +489,32 @@ const styles: { [key: string]: React.CSSProperties } = {
     zIndex: 50,
     boxShadow: '0 0 8px rgba(0, 212, 255, 0.5)',
     pointerEvents: 'none',
+  },
+  emptyDropZone: {
+    minHeight: '120px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderTop: '1px solid #2a2a4e',
+    transition: 'all 0.2s',
+  },
+  emptyDropZoneActive: {
+    backgroundColor: 'rgba(0, 212, 255, 0.05)',
+    border: '2px dashed rgba(0, 212, 255, 0.4)',
+    borderRadius: '8px',
+    margin: '8px',
+    minHeight: '100px',
+  },
+  emptyDropText: {
+    color: '#00d4ff',
+    fontSize: '14px',
+    fontWeight: 500,
+    fontFamily: "'Poppins', sans-serif",
+  },
+  emptyDropHint: {
+    color: '#3a3a5e',
+    fontSize: '13px',
+    fontFamily: "'Poppins', sans-serif",
   },
 };
 

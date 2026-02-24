@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { InstrumentPreset } from '../models/types';
 import useDawStore from '../state/dawStore';
 import { rebuildTrackSynth } from '../engine/TransportSync';
+import { decodeAudioFile } from '../utils/AudioUtils';
 
 interface TrackRowProps {
   trackId: number;
@@ -39,32 +40,8 @@ const TrackRow: React.FC<TrackRowProps> = ({ trackId, automationOpen, onToggleAu
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const url = URL.createObjectURL(file);
-
-    // Decode audio to get duration and waveform
-    const arrayBuffer = await file.arrayBuffer();
-    const audioCtx = new AudioContext();
-    const decoded = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
-    audioCtx.close();
-
-    const durationSec = decoded.duration;
-    const durationBeats = (durationSec * bpm) / 60;
-
-    // Generate waveform peaks
-    const channelData = decoded.getChannelData(0);
-    const numPeaks = 200;
-    const samplesPerPeak = Math.floor(channelData.length / numPeaks);
-    const peaks: number[] = [];
-    for (let i = 0; i < numPeaks; i++) {
-      let max = 0;
-      for (let j = 0; j < samplesPerPeak; j++) {
-        const abs = Math.abs(channelData[i * samplesPerPeak + j] || 0);
-        if (abs > max) max = abs;
-      }
-      peaks.push(max);
-    }
-
-    addAudioClip(trackId, 0, file.name.replace(/\.[^.]+$/, ''), durationBeats, url, peaks);
+    const data = await decodeAudioFile(file, bpm);
+    addAudioClip(trackId, 0, data.name, data.durationBeats, data.url, data.peaks);
     e.target.value = '';
   };
 

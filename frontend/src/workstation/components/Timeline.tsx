@@ -2,6 +2,7 @@ import React, { useRef, useCallback, useEffect, useState } from 'react';
 import useDawStore from '../state/dawStore';
 import { Clip } from '../models/types';
 import { seek as seekTo } from '../engine/TransportSync';
+import { decodeAudioFile } from '../utils/AudioUtils';
 import AutomationLane from './AutomationLane';
 
 const TOTAL_BARS = 32;
@@ -283,31 +284,8 @@ const Timeline: React.FC<TimelineProps> = ({ mode, trackId, showAutomation }) =>
     const x = e.clientX - rect.left;
     const dropBeat = Math.max(0, snapEnabled ? Math.round(x / pixelsPerBeat) : x / pixelsPerBeat);
 
-    const url = URL.createObjectURL(file);
-
-    // Decode audio
-    const arrayBuffer = await file.arrayBuffer();
-    const audioCtx = new AudioContext();
-    const decoded = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
-    audioCtx.close();
-
-    const durationBeats = (decoded.duration * bpm) / 60;
-
-    // Generate waveform peaks
-    const channelData = decoded.getChannelData(0);
-    const numPeaks = 200;
-    const samplesPerPeak = Math.floor(channelData.length / numPeaks);
-    const peaks: number[] = [];
-    for (let i = 0; i < numPeaks; i++) {
-      let max = 0;
-      for (let j = 0; j < samplesPerPeak; j++) {
-        const abs = Math.abs(channelData[i * samplesPerPeak + j] || 0);
-        if (abs > max) max = abs;
-      }
-      peaks.push(max);
-    }
-
-    addAudioClip(track.id, dropBeat, file.name.replace(/\.[^.]+$/, ''), durationBeats, url, peaks);
+    const data = await decodeAudioFile(file, bpm);
+    addAudioClip(track.id, dropBeat, data.name, data.durationBeats, data.url, data.peaks);
   };
 
   const totalHeight = showAutomation ? 80 + AUTOMATION_LANE_HEIGHT : 80;
