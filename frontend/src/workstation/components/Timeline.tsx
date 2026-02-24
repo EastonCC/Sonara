@@ -2,9 +2,11 @@ import React, { useRef, useCallback, useEffect, useState } from 'react';
 import useDawStore from '../state/dawStore';
 import { Clip } from '../models/types';
 import { seek as seekTo } from '../engine/TransportSync';
+import AutomationLane from './AutomationLane';
 
 const TOTAL_BARS = 32;
 const RESIZE_HANDLE_WIDTH = 8;
+const AUTOMATION_LANE_HEIGHT = 60;
 
 type DragMode = 'move' | 'resize-left' | 'resize-right' | null;
 
@@ -21,9 +23,10 @@ interface DragState {
 interface TimelineProps {
   mode: 'header' | 'track';
   trackId?: number;
+  showAutomation?: boolean;
 }
 
-const Timeline: React.FC<TimelineProps> = ({ mode, trackId }) => {
+const Timeline: React.FC<TimelineProps> = ({ mode, trackId, showAutomation }) => {
   const tracks = useDawStore((s) => s.tracks);
   const currentTime = useDawStore((s) => s.currentTime);
   const bpm = useDawStore((s) => s.bpm);
@@ -160,8 +163,9 @@ const Timeline: React.FC<TimelineProps> = ({ mode, trackId }) => {
     e.preventDefault();
     e.stopPropagation();
     selectClip(clip.id);
+    const dragMode = getDragMode(e, clip);
     setDragState({
-      mode: getDragMode(e, clip),
+      mode: dragMode,
       clipId: clip.id,
       sourceTrackId: track.id,
       startMouseX: e.clientX,
@@ -191,19 +195,26 @@ const Timeline: React.FC<TimelineProps> = ({ mode, trackId }) => {
     }
   };
 
+  const totalHeight = showAutomation ? 80 + AUTOMATION_LANE_HEIGHT : 80;
+
   return (
     <div
       style={{
         width: `${totalWidth}px`,
-        height: '100%',
+        height: `${totalHeight}px`,
         position: 'relative',
         opacity: track.muted ? 0.5 : 1,
       }}
-      onClick={handleLaneClick}
-      onDoubleClick={handleLaneDoubleClick}
     >
-      {/* Playhead */}
+      {/* Playhead — spans full height including automation */}
       <div style={{ ...styles.playhead, left: `${playheadX}px` }} />
+
+      {/* Clips area — 80px */}
+      <div
+        style={{ position: 'relative', height: '80px' }}
+        onClick={handleLaneClick}
+        onDoubleClick={handleLaneDoubleClick}
+      >
 
       {/* Clips */}
       {track.clips.map((clip) => {
@@ -283,6 +294,14 @@ const Timeline: React.FC<TimelineProps> = ({ mode, trackId }) => {
           </div>
         );
       })}
+      </div>
+
+      {/* Automation lane — same container as playhead */}
+      {showAutomation && (
+        <div style={{ height: `${AUTOMATION_LANE_HEIGHT}px`, borderTop: '1px solid #252542' }}>
+          <AutomationLane trackId={track.id} />
+        </div>
+      )}
 
       {/* Global drag handler */}
       <TimelineDragHandler
@@ -311,11 +330,32 @@ const TimelineDragHandler: React.FC<{
   const resizeClip = useDawStore((s) => s.resizeClip);
   const deleteClip = useDawStore((s) => s.deleteClip);
   const selectedClipId = useDawStore((s) => s.selectedClipId);
+  const pushUndoSnapshot = useDawStore((s) => s.pushUndoSnapshot);
+  const undoVersionRef = useRef(-1);
+
+  // Reset undo version tracking when drag starts
+  useEffect(() => {
+    if (dragState) undoVersionRef.current = -1;
+  }, [dragState?.clipId]);
 
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
       if (!dragState) return;
       const deltaX = e.clientX - dragState.startMouseX;
+      const deltaY = e.clientY - dragState.startMouseY;
+      const dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+      // Don't start moving until past threshold
+      if (dist < 5) return;
+
+      // Push undo snapshot on first real movement, or again if undo happened mid-drag
+      const currentVersion = useDawStore.getState().undoVersion;
+      if (undoVersionRef.current !== currentVersion) {
+        const label = dragState.mode === 'move' ? 'Move Clip' : 'Resize Clip';
+        pushUndoSnapshot(label);
+        undoVersionRef.current = useDawStore.getState().undoVersion;
+      }
+
       const deltaBeat = deltaX / pixelsPerBeat;
 
       if (dragState.mode === 'move') {
@@ -346,7 +386,7 @@ const TimelineDragHandler: React.FC<{
         resizeClip(dragState.clipId, Math.max(1, newDuration), true);
       }
     },
-    [dragState, pixelsPerBeat, snapEnabled, tracks, moveClip, resizeClip]
+    [dragState, pixelsPerBeat, snapEnabled, tracks, moveClip, resizeClip, pushUndoSnapshot]
   );
 
   const handleMouseUp = useCallback(() => {

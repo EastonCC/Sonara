@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Track, InstrumentPreset } from '../models/types';
+import { Track, InstrumentPreset, TrackEffects, DEFAULT_EFFECTS, AutomationPoint } from '../models/types';
 
 const TRACK_COLORS = ['#e74c3c', '#9b59b6', '#3498db', '#2ecc71', '#f1c40f', '#e67e22', '#1abc9c'];
 
@@ -8,6 +8,7 @@ const DEFAULT_TRACKS: Track[] = [
     id: 1, name: 'Main Vocals', type: 'audio', instrument: 'triangle',
     color: '#e74c3c', muted: false, solo: false, volume: 80, pan: 0,
     clips: [{ id: 1, name: 'Vocal Take 1', startBeat: 0, duration: 16, notes: [] }],
+    effects: { ...DEFAULT_EFFECTS }, volumeAutomation: [],
   },
   {
     id: 2, name: 'Keys', type: 'instrument', instrument: 'triangle',
@@ -45,6 +46,7 @@ const DEFAULT_TRACKS: Track[] = [
       { id: 403, pitch: 50, startBeat: 7, duration: 3, velocity: 85 },
       { id: 404, pitch: 48, startBeat: 10, duration: 2, velocity: 90 },
     ] }],
+    effects: { ...DEFAULT_EFFECTS }, volumeAutomation: [],
   },
   {
     id: 4, name: 'Drums', type: 'drums', instrument: 'membrane',
@@ -69,6 +71,7 @@ const DEFAULT_TRACKS: Track[] = [
       { id: 517, pitch: 38, startBeat: 7, duration: 0.5, velocity: 90 },
       { id: 518, pitch: 36, startBeat: 8, duration: 1, velocity: 100 },
     ] }],
+    effects: { ...DEFAULT_EFFECTS }, volumeAutomation: [],
   },
 ];
 
@@ -121,6 +124,10 @@ interface DawStore {
   toggleSolo: (trackId: number) => void;
   setTrackVolume: (trackId: number, volume: number) => void;
   setTrackInstrument: (trackId: number, instrument: InstrumentPreset) => void;
+  setTrackEffects: (trackId: number, effects: Partial<TrackEffects>) => void;
+  setVolumeAutomation: (trackId: number, points: AutomationPoint[]) => void;
+  addAutomationPoint: (trackId: number, point: AutomationPoint) => void;
+  removeAutomationPoint: (trackId: number, index: number) => void;
 
   selectedClipId: number | null;
   selectClip: (clipId: number | null) => void;
@@ -148,10 +155,12 @@ interface DawStore {
 
   undo: () => void;
   redo: () => void;
+  pushUndoSnapshot: (label: string) => void;
   canUndo: boolean;
   canRedo: boolean;
   undoLabel: string;
   redoLabel: string;
+  undoVersion: number;
 
   zoom: number;
   setZoom: (zoom: number) => void;
@@ -223,6 +232,7 @@ const useDawStore = create<DawStore>((set, get) => ({
       type: 'instrument' as const, instrument: 'triangle' as const,
       color: TRACK_COLORS[s.tracks.length % TRACK_COLORS.length],
       muted: false, solo: false, volume: 75, pan: 0, clips: [],
+      effects: { ...DEFAULT_EFFECTS }, volumeAutomation: [],
     }],
   })),
   deleteTrack: (trackId) => withUndo(set, 'Delete Track', (s) => ({
@@ -264,6 +274,26 @@ const useDawStore = create<DawStore>((set, get) => ({
   setTrackInstrument: (trackId, instrument) => withUndo(set, 'Change Instrument', (s) => ({
     tracks: s.tracks.map((t) => t.id === trackId ? { ...t, instrument } : t),
   })),
+  setTrackEffects: (trackId, effects) => set((s) => ({
+    tracks: s.tracks.map((t) => t.id === trackId
+      ? { ...t, effects: { ...(t.effects || DEFAULT_EFFECTS), ...effects } }
+      : t),
+  })),
+  setVolumeAutomation: (trackId, points) => set((s) => ({
+    tracks: s.tracks.map((t) => t.id === trackId ? { ...t, volumeAutomation: points } : t),
+  })),
+  addAutomationPoint: (trackId, point) => set((s) => ({
+    tracks: s.tracks.map((t) => t.id === trackId ? {
+      ...t,
+      volumeAutomation: [...(t.volumeAutomation || []), point].sort((a, b) => a.beat - b.beat),
+    } : t),
+  })),
+  removeAutomationPoint: (trackId, index) => set((s) => ({
+    tracks: s.tracks.map((t) => t.id === trackId ? {
+      ...t,
+      volumeAutomation: (t.volumeAutomation || []).filter((_, i) => i !== index),
+    } : t),
+  })),
 
   // Clips
   selectedClipId: null,
@@ -277,6 +307,7 @@ const useDawStore = create<DawStore>((set, get) => ({
           id: newClipId, name: t.type === 'drums' ? 'Beat' : 'New Clip',
           startBeat: Math.max(0, snap), duration: 4, notes: [],
         }],
+    effects: { ...DEFAULT_EFFECTS }, volumeAutomation: [],
       } : t),
       selectedClipId: newClipId,
     };
@@ -419,6 +450,11 @@ const useDawStore = create<DawStore>((set, get) => ({
   })),
 
   // Undo/Redo
+  pushUndoSnapshot: (label: string) => {
+    const { tracks, undoVersion } = get();
+    pushUndo(tracks, label);
+    set({ canUndo: true, canRedo: false, undoLabel: label, redoLabel: '', undoVersion: undoVersion + 1 });
+  },
   undo: () => {
     if (undoStack.length === 0) return;
     const current = get();
@@ -431,6 +467,7 @@ const useDawStore = create<DawStore>((set, get) => ({
       canRedo: true,
       undoLabel: prevLabel,
       redoLabel: entry.label,
+      undoVersion: current.undoVersion + 1,
     });
   },
   redo: () => {
@@ -445,12 +482,14 @@ const useDawStore = create<DawStore>((set, get) => ({
       canRedo: redoStack.length > 0,
       undoLabel: entry.label,
       redoLabel: nextLabel,
+      undoVersion: current.undoVersion + 1,
     });
   },
   canUndo: false,
   canRedo: false,
   undoLabel: '',
   redoLabel: '',
+  undoVersion: 0,
 
   zoom: 1,
   setZoom: (zoom) => set({ zoom }),

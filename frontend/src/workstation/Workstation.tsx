@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import useDawStore from './state/dawStore';
 import { initAudio, dispose } from './engine/TransportSync';
@@ -9,6 +9,7 @@ import Timeline from './components/Timeline';
 import PianoRoll from './components/PianoRoll';
 
 const TRACK_LIST_WIDTH = 280;
+const AUTOMATION_LANE_HEIGHT = 60;
 
 const DAW = () => {
   const navigate = useNavigate();
@@ -17,6 +18,16 @@ const DAW = () => {
   const pianoRollClipId = useDawStore((s) => s.pianoRollClipId);
   const tracks = useDawStore((s) => s.tracks);
   const addTrack = useDawStore((s) => s.addTrack);
+  const [automationOpen, setAutomationOpen] = useState<Set<number>>(new Set());
+
+  const toggleAutomation = (trackId: number) => {
+    setAutomationOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(trackId)) next.delete(trackId);
+      else next.add(trackId);
+      return next;
+    });
+  };
 
   useEffect(() => {
     document.title = `${projectName} | Sonara DAW`;
@@ -68,16 +79,13 @@ const DAW = () => {
           between track list and timeline is guaranteed.
       */}
       <div style={styles.scrollContainer} data-scroll-container>
-        {/* Wide inner container: trackList + timeline width */}
         <div style={styles.scrollContent}>
 
           {/* ═══ Header row ═══ */}
           <div style={styles.headerRow}>
-            {/* Track list header — sticky left + sticky top */}
             <div style={styles.trackListHeader}>
               <button onClick={addTrack} style={styles.addTrackButton}>+ Add Track</button>
             </div>
-            {/* Timeline header (bar numbers) */}
             <div style={styles.timelineHeaderCell}>
               <Timeline mode="header" />
             </div>
@@ -85,16 +93,37 @@ const DAW = () => {
 
           {/* ═══ Track rows ═══ */}
           {tracks.map((track) => (
-            <div key={track.id} style={styles.bodyRow} data-track-row={track.id}>
-              {/* Track info — sticky left */}
-              <div style={styles.trackListCell}>
-                <TrackRow trackId={track.id} />
+            <React.Fragment key={track.id}>
+              <div style={{
+                ...styles.bodyRow,
+                height: automationOpen.has(track.id) ? `${80 + 60}px` : '80px',
+              }} data-track-row={track.id}>
+                <div style={{
+                  ...styles.trackListCell,
+                  height: automationOpen.has(track.id) ? `${80 + 60}px` : '80px',
+                }}>
+                  <div style={{ height: '80px' }}>
+                    <TrackRow
+                      trackId={track.id}
+                      automationOpen={automationOpen.has(track.id)}
+                      onToggleAutomation={() => toggleAutomation(track.id)}
+                    />
+                  </div>
+                  {automationOpen.has(track.id) && (
+                    <div style={styles.automationLabel}>
+                      <span style={styles.automationLabelText}>Vol</span>
+                    </div>
+                  )}
+                </div>
+                <div style={styles.timelineCell}>
+                  <Timeline
+                    mode="track"
+                    trackId={track.id}
+                    showAutomation={automationOpen.has(track.id)}
+                  />
+                </div>
               </div>
-              {/* Timeline lane */}
-              <div style={styles.timelineCell}>
-                <Timeline mode="track" trackId={track.id} />
-              </div>
-            </div>
+            </React.Fragment>
           ))}
         </div>
       </div>
@@ -144,7 +173,6 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   bodyRow: {
     display: 'flex',
-    height: '80px',
     borderBottom: '1px solid #2a2a4e',
   },
   /* ─── Track list cells (sticky left) ─── */
@@ -179,8 +207,22 @@ const styles: { [key: string]: React.CSSProperties } = {
     position: 'relative',
   },
   timelineCell: {
-    height: '80px',
     position: 'relative',
+  },
+  /* ─── Automation label ─── */
+  automationLabel: {
+    height: '60px',
+    display: 'flex',
+    alignItems: 'center',
+    paddingLeft: '42px',
+    borderTop: '1px solid #252542',
+    backgroundColor: '#151528',
+  },
+  automationLabelText: {
+    fontSize: '10px',
+    fontWeight: 600,
+    color: '#00d4ff',
+    opacity: 0.6,
   },
   /* ─── Buttons ─── */
   addTrackButton: {

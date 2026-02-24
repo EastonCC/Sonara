@@ -19,6 +19,33 @@ export interface Clip {
 
 export type InstrumentPreset = 'triangle' | 'sawtooth' | 'square' | 'sine' | 'fm' | 'am' | 'fat' | 'membrane' | 'metal' | 'pluck';
 
+export interface TrackEffects {
+  reverbMix: number;      // 0-100 (dry/wet)
+  reverbDecay: number;    // 0.1-10 seconds
+  delayMix: number;       // 0-100
+  delayTime: number;      // 0.01-1 seconds
+  delayFeedback: number;  // 0-90 percent
+  filterFreq: number;     // 20-20000 Hz
+  filterType: 'lowpass' | 'highpass' | 'bandpass';
+  filterEnabled: boolean;
+}
+
+export const DEFAULT_EFFECTS: TrackEffects = {
+  reverbMix: 0,
+  reverbDecay: 2,
+  delayMix: 0,
+  delayTime: 0.25,
+  delayFeedback: 30,
+  filterFreq: 20000,
+  filterType: 'lowpass',
+  filterEnabled: false,
+};
+
+export interface AutomationPoint {
+  beat: number;   // absolute beat position
+  value: number;  // 0-100
+}
+
 export interface Track {
   id: number;
   name: string;
@@ -30,4 +57,6 @@ export interface Track {
   volume: number;
   pan: number;
   clips: Clip[];
+  effects: TrackEffects;
+  volumeAutomation: AutomationPoint[];
 }

@@ -6,6 +6,8 @@ import { rebuildTrackSynth } from '../engine/TransportSync';
 
 interface TrackRowProps {
   trackId: number;
+  automationOpen?: boolean;
+  onToggleAutomation?: () => void;
 }
 
 const INSTRUMENT_LABELS: Record<InstrumentPreset, string> = {
@@ -19,7 +21,7 @@ const TRACK_COLORS = [
   '#3498db', '#9b59b6', '#e91e63', '#795548', '#607d8b',
 ];
 
-const TrackRow: React.FC<TrackRowProps> = ({ trackId }) => {
+const TrackRow: React.FC<TrackRowProps> = ({ trackId, automationOpen, onToggleAutomation }) => {
   const track = useDawStore((s) => s.tracks.find((t) => t.id === trackId));
   const toggleMute = useDawStore((s) => s.toggleMute);
   const toggleSolo = useDawStore((s) => s.toggleSolo);
@@ -116,6 +118,16 @@ const TrackRow: React.FC<TrackRowProps> = ({ trackId }) => {
             ...(track.solo ? styles.soloButtonActive : {}),
           }}
         >S</button>
+        {onToggleAutomation && (
+          <button
+            onClick={onToggleAutomation}
+            style={{
+              ...styles.autoButton,
+              ...(automationOpen ? styles.autoButtonActive : {}),
+            }}
+            title="Volume automation"
+          >A</button>
+        )}
       </div>
 
       <div style={styles.trackInfo}>
@@ -241,6 +253,12 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontWeight: 600, cursor: 'pointer',
   },
   soloButtonActive: { backgroundColor: '#f1c40f', color: '#000000' },
+  autoButton: {
+    width: '24px', height: '24px', borderRadius: '4px', border: 'none',
+    backgroundColor: '#3a3a5e', color: '#888', fontSize: '12px',
+    fontWeight: 600, cursor: 'pointer',
+  },
+  autoButtonActive: { backgroundColor: '#00d4ff', color: '#000000' },
   trackInfo: {
     flex: 1, display: 'flex', flexDirection: 'column',
     justifyContent: 'center', gap: '4px', minWidth: 0,

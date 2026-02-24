@@ -3,6 +3,7 @@ import useDawStore from '../state/dawStore';
 import { MidiNote } from '../models/types';
 import { previewNoteOn, previewNoteChange, previewNoteOff } from '../engine/TransportSync';
 import Keyboard from './Keyboard';
+import EffectsPanel from './EffectsPanel';
 
 const NOTE_HEIGHT = 14;
 const PIXELS_PER_BEAT = 80;
@@ -30,22 +31,18 @@ type InteractionMode = 'none' | 'marquee' | 'note-move' | 'note-resize';
 
 interface InteractionState {
   mode: InteractionMode;
-  // Mouse origin
   startX: number;
   startY: number;
-  // Current mouse (for marquee rendering)
   currentX: number;
   currentY: number;
-  // For note drag
   noteId: number;
   originalPitch: number;
   originalStartBeat: number;
   originalDuration: number;
-  // Track last applied delta for multi-move
   lastDeltaPitch: number;
   lastDeltaBeat: number;
-  // Whether we've moved past threshold
   dragging: boolean;
+  undoVersionAtPush: number; // -1 means not yet pushed
 }
 
 const PianoRoll: React.FC = () => {
@@ -62,6 +59,7 @@ const PianoRoll: React.FC = () => {
   const moveSelectedNotes = useDawStore((s) => s.moveSelectedNotes);
   const resizeNote = useDawStore((s) => s.resizeNote);
   const deleteSelectedNotes = useDawStore((s) => s.deleteSelectedNotes);
+  const pushUndoSnapshot = useDawStore((s) => s.pushUndoSnapshot);
 
   const gridRef = useRef<HTMLDivElement>(null);
   const gridElRef = useRef<HTMLDivElement>(null);
@@ -70,7 +68,7 @@ const PianoRoll: React.FC = () => {
   const interaction = useRef<InteractionState | null>(null);
   // State just for triggering re-renders of marquee rect and hover highlights
   const [renderTick, setRenderTick] = useState(0);
-  const [viewMode, setViewMode] = useState<'keyboard' | 'midi'>('keyboard');
+  const [viewMode, setViewMode] = useState<'keyboard' | 'midi' | 'effects'>('keyboard');
   const forceRender = () => setRenderTick((t) => t + 1);
 
   const track = tracks.find((t) => t.id === pianoRollTrackId);
@@ -163,6 +161,7 @@ const PianoRoll: React.FC = () => {
         lastDeltaPitch: 0,
         lastDeltaBeat: 0,
         dragging: false,
+        undoVersionAtPush: -1,
       };
     } else {
       // Clicked empty space — start marquee
@@ -215,6 +214,13 @@ const PianoRoll: React.FC = () => {
     const dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
     if (dist > DRAG_THRESHOLD) i.dragging = true;
     if (!i.dragging) return;
+
+    // Push undo snapshot once when drag actually starts, or again if undo happened mid-drag
+    const currentVersion = useDawStore.getState().undoVersion;
+    if (i.undoVersionAtPush !== currentVersion) {
+      pushUndoSnapshot(i.mode === 'note-resize' ? 'Resize Note' : 'Move Note');
+      i.undoVersionAtPush = useDawStore.getState().undoVersion;
+    }
 
     if (i.mode === 'note-move') {
       const { selectedNoteIds: selected } = useDawStore.getState();
@@ -406,6 +412,15 @@ const PianoRoll: React.FC = () => {
             >
               🎼 MIDI Editor
             </button>
+            <button
+              onClick={() => setViewMode('effects')}
+              style={{
+                ...styles.tab,
+                ...(viewMode === 'effects' ? styles.tabActive : {}),
+              }}
+            >
+              🎛️ Effects
+            </button>
           </div>
           <span style={styles.headerInfo}>
             {clip.notes.length} notes · {clip.duration} beats
@@ -420,6 +435,11 @@ const PianoRoll: React.FC = () => {
       {/* ─── Keyboard View ─── */}
       {viewMode === 'keyboard' && (
         <Keyboard clipId={clip.id} trackId={track.id} />
+      )}
+
+      {/* ─── Effects View ─── */}
+      {viewMode === 'effects' && (
+        <EffectsPanel trackId={track.id} />
       )}
 
       {/* ─── MIDI Editor View ─── */}

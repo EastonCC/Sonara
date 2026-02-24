@@ -8,7 +8,7 @@ let unsubscribeTracks: (() => void) | null = null;
 // Sync the Zustand store's currentTime with Tone.Transport using rAF
 const startPlayheadSync = () => {
   const update = () => {
-    const { isPlaying, setCurrentTime, loopEnabled, loopStart, loopEnd, bpm } = useDawStore.getState();
+    const { isPlaying, setCurrentTime, loopEnabled, loopStart, loopEnd, bpm, tracks } = useDawStore.getState();
     if (isPlaying) {
       const currentTime = audioEngine.getCurrentTime();
 
@@ -17,7 +17,6 @@ const startPlayheadSync = () => {
         const loopEndTime = (loopEnd / bpm) * 60;
         const loopStartTime = (loopStart / bpm) * 60;
         if (currentTime >= loopEndTime) {
-          const { tracks } = useDawStore.getState();
           audioEngine.stop();
           audioEngine.play(tracks, bpm, loopStartTime);
           setCurrentTime(loopStartTime);
@@ -26,11 +25,42 @@ const startPlayheadSync = () => {
         }
       }
 
+      // ─── Real-time volume automation ───
+      // Use the same currentTime that drives the playhead visual
+      const currentBeat = (currentTime * bpm) / 60;
+      applyAutomation(tracks, currentBeat);
+
       setCurrentTime(currentTime);
       animationFrameId = requestAnimationFrame(update);
     }
   };
   animationFrameId = requestAnimationFrame(update);
+};
+
+// Interpolate automation value at a given beat and apply to gain nodes
+const applyAutomation = (tracks: Track[], beat: number) => {
+  tracks.forEach((track) => {
+    const points = track.volumeAutomation;
+    if (!points || points.length === 0) return;
+
+    let value: number = points[0].value;
+    if (beat <= points[0].beat) {
+      value = points[0].value;
+    } else if (beat >= points[points.length - 1].beat) {
+      value = points[points.length - 1].value;
+    } else {
+      for (let i = 0; i < points.length - 1; i++) {
+        if (beat >= points[i].beat && beat < points[i + 1].beat) {
+          const t = (beat - points[i].beat) / (points[i + 1].beat - points[i].beat);
+          value = points[i].value + t * (points[i + 1].value - points[i].value);
+          break;
+        }
+      }
+    }
+
+    const vol = (value / 100) * (track.muted ? 0 : track.volume / 100);
+    audioEngine.setTrackGain(track.id, vol);
+  });
 };
 
 const stopPlayheadSync = () => {
@@ -84,6 +114,11 @@ export const play = () => {
   }
 
   audioEngine.play(tracks, bpm, currentTime);
+
+  // Apply automation immediately so gain is correct from the first note
+  const currentBeat = (currentTime * bpm) / 60;
+  applyAutomation(tracks, currentBeat);
+
   startPlayheadSync();
   startTrackSubscription();
 };
@@ -180,6 +215,10 @@ export const setPreviewRelease = (seconds: number) => {
 
 export const rebuildPreviewSynth = (instrument: string) => {
   audioEngine.rebuildPreviewSynth(instrument);
+};
+
+export const updateEffects = (track: Track) => {
+  audioEngine.updateEffects(track);
 };
 
 // Rebuild a track's synth when instrument changes

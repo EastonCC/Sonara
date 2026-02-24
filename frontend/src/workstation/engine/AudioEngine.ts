@@ -18,7 +18,16 @@ interface TrackNodes {
   synth: Tone.PolySynth | Tone.NoiseSynth;
   gain: Tone.Gain;
   panner: Tone.Panner;
+  // Effects
+  reverb: Tone.Reverb | null;
+  reverbSend: Tone.Gain | null;
+  delay: Tone.FeedbackDelay | null;
+  delaySend: Tone.Gain | null;
+  filter: Tone.Filter | null;
+  // Post-effects dry path
+  dryGain: Tone.Gain;
   scheduledEvents: number[];
+  automationEvents: number[];
 }
 
 class AudioEngine {
@@ -103,21 +112,103 @@ class AudioEngine {
     let nodes = this.trackNodes.get(track.id);
 
     if (!nodes) {
+      // Signal chain: synth → gain → [filter] → dryGain → panner → destination
+      //                                      ↘ reverbSend → reverb → panner
+      //                                      ↘ delaySend → delay → panner
       const panner = new Tone.Panner(track.pan / 100).toDestination();
-      const gain = new Tone.Gain(track.volume / 100).connect(panner);
+      const dryGain = new Tone.Gain(1).connect(panner);
+      const gain = new Tone.Gain(track.volume / 100).connect(dryGain);
 
       const synth = this.createSynth(track.instrument, track.type);
       synth.connect(gain);
 
-      nodes = { synth, gain, panner, scheduledEvents: [] };
+      nodes = {
+        synth, gain, panner, dryGain,
+        reverb: null, reverbSend: null,
+        delay: null, delaySend: null,
+        filter: null,
+        scheduledEvents: [], automationEvents: [],
+      };
       this.trackNodes.set(track.id, nodes);
     }
 
-    // Update gain and pan to match current track state
-    nodes.gain.gain.value = track.muted ? 0 : track.volume / 100;
+    // Update gain and pan (skip gain if automation is active)
+    if (!track.volumeAutomation || track.volumeAutomation.length === 0) {
+      nodes.gain.gain.value = track.muted ? 0 : track.volume / 100;
+    }
     nodes.panner.pan.value = track.pan / 100;
 
+    // Update effects
+    this.updateTrackEffects(track, nodes);
+
     return nodes;
+  }
+
+  // Update effect nodes to match track settings
+  private updateTrackEffects(track: Track, nodes: TrackNodes): void {
+    const fx = track.effects;
+    if (!fx) return;
+
+    // ─── Reverb ───
+    if (fx.reverbMix > 0) {
+      if (!nodes.reverb) {
+        nodes.reverb = new Tone.Reverb({ decay: fx.reverbDecay, wet: 1 }).connect(nodes.panner);
+        nodes.reverbSend = new Tone.Gain(fx.reverbMix / 100).connect(nodes.reverb);
+        nodes.dryGain.connect(nodes.reverbSend);
+      }
+      nodes.reverbSend!.gain.value = fx.reverbMix / 100;
+      nodes.reverb.decay = fx.reverbDecay;
+    } else if (nodes.reverbSend) {
+      nodes.reverbSend.gain.value = 0;
+    }
+
+    // ─── Delay ───
+    if (fx.delayMix > 0) {
+      if (!nodes.delay) {
+        nodes.delay = new Tone.FeedbackDelay({
+          delayTime: fx.delayTime,
+          feedback: fx.delayFeedback / 100,
+          wet: 1,
+        }).connect(nodes.panner);
+        nodes.delaySend = new Tone.Gain(fx.delayMix / 100).connect(nodes.delay);
+        nodes.dryGain.connect(nodes.delaySend);
+      }
+      nodes.delaySend!.gain.value = fx.delayMix / 100;
+      nodes.delay.delayTime.value = fx.delayTime;
+      nodes.delay.feedback.value = fx.delayFeedback / 100;
+    } else if (nodes.delaySend) {
+      nodes.delaySend.gain.value = 0;
+    }
+
+    // ─── Filter ───
+    if (fx.filterEnabled) {
+      if (!nodes.filter) {
+        nodes.filter = new Tone.Filter({
+          frequency: fx.filterFreq,
+          type: fx.filterType,
+          rolloff: -24,
+        });
+        // Insert filter between gain and dryGain
+        nodes.gain.disconnect(nodes.dryGain);
+        nodes.gain.connect(nodes.filter);
+        nodes.filter.connect(nodes.dryGain);
+      }
+      nodes.filter.frequency.value = fx.filterFreq;
+      nodes.filter.type = fx.filterType;
+    } else if (nodes.filter) {
+      // Bypass filter
+      nodes.gain.disconnect(nodes.filter);
+      nodes.filter.disconnect(nodes.dryGain);
+      nodes.gain.connect(nodes.dryGain);
+      nodes.filter.dispose();
+      nodes.filter = null;
+    }
+  }
+
+  // Update effects for a specific track (called from UI)
+  updateEffects(track: Track): void {
+    const nodes = this.trackNodes.get(track.id);
+    if (nodes) this.updateTrackEffects(track, nodes);
   }
 
   // Schedule all notes for all tracks
@@ -199,6 +290,7 @@ class AudioEngine {
     this.scheduledEvents = [];
     this.trackNodes.forEach((nodes) => {
       nodes.scheduledEvents = [];
+      nodes.automationEvents = [];
     });
   }
 
@@ -212,6 +304,33 @@ class AudioEngine {
   // Start playback
   play(tracks: Track[], bpm: number, fromTime: number = 0): void {
     this.schedulePlayback(tracks, bpm, fromTime);
+
+    // Apply volume automation immediately before starting transport
+    const currentBeat = (fromTime * bpm) / 60;
+    tracks.forEach((track) => {
+      const points = track.volumeAutomation;
+      if (!points || points.length === 0) return;
+
+      let value: number = points[0].value;
+      if (currentBeat <= points[0].beat) {
+        value = points[0].value;
+      } else if (currentBeat >= points[points.length - 1].beat) {
+        value = points[points.length - 1].value;
+      } else {
+        for (let i = 0; i < points.length - 1; i++) {
+          if (currentBeat >= points[i].beat && currentBeat < points[i + 1].beat) {
+            const t = (currentBeat - points[i].beat) / (points[i + 1].beat - points[i].beat);
+            value = points[i].value + t * (points[i + 1].value - points[i].value);
+            break;
+          }
+        }
+      }
+
+      const vol = (value / 100) * (track.muted ? 0 : track.volume / 100);
+      const nodes = this.trackNodes.get(track.id);
+      if (nodes) nodes.gain.gain.value = vol;
+    });
+
     Tone.getTransport().seconds = fromTime;
     Tone.getTransport().start();
   }
@@ -248,6 +367,14 @@ class AudioEngine {
     if (nodes) {
       nodes.gain.gain.value = track.muted ? 0 : track.volume / 100;
       nodes.panner.pan.value = track.pan / 100;
+    }
+  }
+
+  // Set a track's gain directly (used by real-time automation)
+  setTrackGain(trackId: number, value: number): void {
+    const nodes = this.trackNodes.get(trackId);
+    if (nodes) {
+      nodes.gain.gain.value = value;
     }
   }
 
