@@ -27,7 +27,7 @@ const yToPitch = (y: number): number => MAX_PITCH - Math.floor(y / NOTE_HEIGHT);
 
 // ─── Types ───
 
-type InteractionMode = 'none' | 'marquee' | 'note-move' | 'note-resize';
+type InteractionMode = 'none' | 'marquee' | 'note-move' | 'note-resize' | 'note-velocity';
 
 interface InteractionState {
   mode: InteractionMode;
@@ -43,7 +43,10 @@ interface InteractionState {
   lastDeltaBeat: number;
   dragging: boolean;
   undoVersionAtPush: number; // -1 means not yet pushed
+  originalVelocity: number;
 }
+
+// ─── PianoRoll ───
 
 const PianoRoll: React.FC = () => {
   const pianoRollClipId = useDawStore((s) => s.pianoRollClipId);
@@ -69,6 +72,10 @@ const PianoRoll: React.FC = () => {
   // State just for triggering re-renders of marquee rect and hover highlights
   const [renderTick, setRenderTick] = useState(0);
   const [viewMode, setViewMode] = useState<'keyboard' | 'midi' | 'effects'>('keyboard');
+  const [velocityMode, setVelocityMode] = useState(false);
+  const [showVelocity, setShowVelocity] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState('');
   const forceRender = () => setRenderTick((t) => t + 1);
 
   const track = tracks.find((t) => t.id === pianoRollTrackId);
@@ -143,13 +150,19 @@ const PianoRoll: React.FC = () => {
 
       previewNoteOn(hitNote.pitch, hitNote.velocity);
 
-      // Determine resize vs move
+      // Determine mode: velocity, resize, or move
       const noteLeft = hitNote.startBeat * PIXELS_PER_BEAT;
       const noteRight = noteLeft + hitNote.duration * PIXELS_PER_BEAT;
-      const isResize = x > noteRight - RESIZE_HANDLE_WIDTH;
+      const isResize = !velocityMode && x > noteRight - RESIZE_HANDLE_WIDTH;
+      const mode = velocityMode ? 'note-velocity' : isResize ? 'note-resize' : 'note-move';
+
+      // In velocity mode, don't preview on click — we'll preview on release
+      if (velocityMode) {
+        previewNoteOff();
+      }
 
       interaction.current = {
-        mode: isResize ? 'note-resize' : 'note-move',
+        mode,
         startX: e.clientX,
         startY: e.clientY,
         currentX: e.clientX,
@@ -162,6 +175,7 @@ const PianoRoll: React.FC = () => {
         lastDeltaBeat: 0,
         dragging: false,
         undoVersionAtPush: -1,
+        originalVelocity: hitNote.velocity,
       };
     } else {
       // Clicked empty space — start marquee
@@ -180,6 +194,8 @@ const PianoRoll: React.FC = () => {
         lastDeltaPitch: 0,
         lastDeltaBeat: 0,
         dragging: false,
+        undoVersionAtPush: -1,
+        originalVelocity: 0,
       };
     }
 
@@ -218,8 +234,54 @@ const PianoRoll: React.FC = () => {
     // Push undo snapshot once when drag actually starts, or again if undo happened mid-drag
     const currentVersion = useDawStore.getState().undoVersion;
     if (i.undoVersionAtPush !== currentVersion) {
-      pushUndoSnapshot(i.mode === 'note-resize' ? 'Resize Note' : 'Move Note');
+      const label = i.mode === 'note-velocity' ? 'Change Velocity'
+        : i.mode === 'note-resize' ? 'Resize Note' : 'Move Note';
+      pushUndoSnapshot(label);
       i.undoVersionAtPush = useDawStore.getState().undoVersion;
+    }
+
+    if (i.mode === 'note-velocity') {
+      // Drag up = higher velocity, drag down = lower
+      const deltaVel = Math.round(-deltaY * 0.8);
+      const newVel = Math.max(1, Math.min(127, i.originalVelocity + deltaVel));
+      const state = useDawStore.getState();
+      const selected = state.selectedNoteIds;
+
+      if (selected.size > 1 && selected.has(i.noteId)) {
+        // Multi-note velocity: apply same delta to all selected
+        const noteIds = Array.from(selected);
+        useDawStore.setState((s) => {
+          const idSet = new Set(noteIds);
+          return {
+            tracks: s.tracks.map((t) => ({
+              ...t, clips: t.clips.map((c) => c.id === clipData.id ? {
+                ...c, notes: c.notes.map((n) => {
+                  if (!idSet.has(n.id)) return n;
+                  const origNote = clipData.notes.find((cn) => cn.id === n.id);
+                  const origVel = origNote ? origNote.velocity : n.velocity;
+                  // For multi-note, we apply same delta relative to drag start
+                  // but each note keeps its own offset from the dragged note
+                  const velDiff = newVel - i.originalVelocity;
+                  const nv = Math.max(1, Math.min(127, origVel + velDiff));
+                  return { ...n, velocity: nv };
+                }),
+              } : c),
+            })),
+          };
+        });
+      } else {
+        // Single note velocity
+        useDawStore.setState((s) => ({
+          tracks: s.tracks.map((t) => ({
+            ...t, clips: t.clips.map((c) => c.id === clipData.id ? {
+              ...c, notes: c.notes.map((n) =>
+                n.id === i.noteId ? { ...n, velocity: newVel } : n),
+            } : c),
+          })),
+        }));
+      }
+      forceRender();
+      return;
     }
 
     if (i.mode === 'note-move') {
@@ -325,6 +387,19 @@ const PianoRoll: React.FC = () => {
       if (!i.dragging) {
         useDawStore.getState().selectNote(i.noteId);
       }
+    } else if (i.mode === 'note-velocity') {
+      // Preview the note at its new velocity on release
+      if (clipData) {
+        const updatedNote = clipData.notes.find((n) => n.id === i.noteId);
+        if (updatedNote) {
+          previewNoteOn(updatedNote.pitch, updatedNote.velocity);
+          setTimeout(() => previewNoteOff(), 200);
+        }
+      }
+
+      if (!i.dragging) {
+        useDawStore.getState().selectNote(i.noteId);
+      }
     }
 
     interaction.current = null;
@@ -348,6 +423,9 @@ const PianoRoll: React.FC = () => {
       }
       if (e.key === 'Escape') {
         state.closePianoRoll();
+      }
+      if (e.key === 'v' && !e.ctrlKey && !e.metaKey) {
+        setVelocityMode((m) => !m);
       }
     };
 
@@ -395,7 +473,53 @@ const PianoRoll: React.FC = () => {
         <div style={styles.headerLeft}>
           <span style={styles.headerTitle}>
             <span style={{ ...styles.headerDot, backgroundColor: track.color }} />
-            {clip.name}
+            {editingName ? (
+              <input
+                autoFocus
+                value={nameValue}
+                onChange={(e) => setNameValue(e.target.value)}
+                onBlur={() => {
+                  if (nameValue.trim()) {
+                    useDawStore.getState().renameClip(clip.id, nameValue.trim());
+                  }
+                  setEditingName(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    if (nameValue.trim()) {
+                      useDawStore.getState().renameClip(clip.id, nameValue.trim());
+                    }
+                    setEditingName(false);
+                  }
+                  if (e.key === 'Escape') {
+                    setEditingName(false);
+                  }
+                }}
+                style={{
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid #00d4ff',
+                  borderRadius: '4px',
+                  color: '#fff',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  fontFamily: "'Poppins', sans-serif",
+                  padding: '1px 6px',
+                  outline: 'none',
+                  width: `${Math.max(60, nameValue.length * 9)}px`,
+                }}
+              />
+            ) : (
+              <span
+                onClick={() => {
+                  setNameValue(clip.name);
+                  setEditingName(true);
+                }}
+                style={{ cursor: 'text' }}
+                title="Click to rename"
+              >
+                {clip.name}
+              </span>
+            )}
           </span>
           {/* Tab buttons */}
           <div style={styles.tabGroup}>
@@ -432,9 +556,60 @@ const PianoRoll: React.FC = () => {
             {selectedNoteIds.size > 0 && ` · ${selectedNoteIds.size} selected`}
           </span>
         </div>
-        <button onClick={closePianoRoll} style={styles.closeButton}>
-          ✕
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          {/* Velocity view toggle */}
+          <button
+            onClick={() => setShowVelocity(!showVelocity)}
+            title="Show velocity bars (V)"
+            style={{
+              ...styles.tab,
+              ...(showVelocity ? styles.tabActive : {}),
+              fontSize: '10px',
+              padding: '3px 8px',
+            }}
+          >
+            📊 Vel
+          </button>
+          {/* Velocity edit mode toggle */}
+          <button
+            onClick={() => setVelocityMode(!velocityMode)}
+            title="Velocity edit mode — drag notes up/down to change velocity"
+            style={{
+              ...styles.tab,
+              ...(velocityMode ? {
+                backgroundColor: '#ff6b3520',
+                color: '#ff6b35',
+                border: '1px solid #ff6b3560',
+              } : {}),
+              fontSize: '10px',
+              padding: '3px 8px',
+            }}
+          >
+            ✏️ Vel Edit
+          </button>
+          {/* Humanize */}
+          <button
+            onClick={() => {
+              const ids = selectedNoteIds.size > 0
+                ? Array.from(selectedNoteIds)
+                : clip.notes.map((n) => n.id);
+              if (ids.length > 0) {
+                useDawStore.getState().humanizeNotes(clip.id, ids, 0.04, 15);
+              }
+            }}
+            title="Humanize — add subtle random timing and velocity variation"
+            style={{
+              ...styles.tab,
+              fontSize: '10px',
+              padding: '3px 8px',
+            }}
+          >
+            🎲 Humanize
+          </button>
+          <button onClick={closePianoRoll} style={styles.closeButton}>
+            ✕
+          </button>
+        </div>
       </div>
 
       {/* ─── Keyboard View ─── */}
@@ -540,6 +715,7 @@ const PianoRoll: React.FC = () => {
               const highlighted = isSelected || isHovered;
               const isDragging = i?.noteId === note.id && i?.dragging;
               const noteWidth = Math.max(note.duration * PIXELS_PER_BEAT, 4);
+              const velFrac = note.velocity / 127;
 
               return (
                 <div
@@ -553,43 +729,89 @@ const PianoRoll: React.FC = () => {
                     backgroundColor: highlighted
                       ? '#ffffff'
                       : track.color,
-                    opacity: highlighted ? 1 : 0.6 + (note.velocity / 127) * 0.4,
+                    opacity: highlighted ? 1 : 0.6 + velFrac * 0.4,
                     borderRadius: '3px',
-                    cursor: isDragging ? 'grabbing' : 'grab',
+                    cursor: velocityMode
+                      ? 'ns-resize'
+                      : isDragging ? 'grabbing' : 'grab',
                     outline: isSelected ? `2px solid ${track.color}` : 'none',
                     outlineOffset: '-1px',
                     boxShadow: highlighted ? '0 0 8px rgba(255,255,255,0.4)' : 'none',
                     zIndex: isDragging ? 50 : highlighted ? 10 : 5,
                     userSelect: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    paddingLeft: '4px',
                     overflow: 'hidden',
                     transition: highlighted ? 'none' : 'background-color 0.1s',
                   }}
                 >
-                  <span
-                    style={{
-                      fontSize: '9px',
-                      color: highlighted ? track.color : 'rgba(255,255,255,0.8)',
-                      pointerEvents: 'none',
-                      whiteSpace: 'nowrap',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {noteWidth > 30 ? pitchToName(note.pitch) : ''}
-                  </span>
-                  <div
-                    style={{
-                      position: 'absolute',
-                      right: 0,
-                      top: 0,
-                      bottom: 0,
-                      width: `${RESIZE_HANDLE_WIDTH}px`,
-                      cursor: 'ew-resize',
-                      backgroundColor: 'rgba(0,0,0,0.1)',
-                    }}
-                  />
+                  {/* Velocity fill bar (shown when velocity view is on) */}
+                  {(showVelocity || velocityMode) && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        bottom: 0,
+                        width: `${velFrac * 100}%`,
+                        height: '3px',
+                        background: highlighted
+                          ? track.color
+                          : 'rgba(255,255,255,0.7)',
+                        borderRadius: '0 0 3px 3px',
+                        pointerEvents: 'none',
+                        transition: 'width 0.05s ease-out',
+                      }}
+                    />
+                  )}
+                  {/* Velocity number (shown on selected notes in velocity mode) */}
+                  {velocityMode && isSelected && noteWidth > 20 && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        fontSize: '8px',
+                        fontWeight: 700,
+                        color: highlighted ? track.color : 'rgba(255,255,255,0.9)',
+                        pointerEvents: 'none',
+                        fontFamily: "'Poppins', sans-serif",
+                        textShadow: '0 0 3px rgba(0,0,0,0.5)',
+                      }}
+                    >
+                      {note.velocity}
+                    </span>
+                  )}
+                  {/* Note name */}
+                  {!velocityMode && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        left: '4px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        fontSize: '9px',
+                        color: highlighted ? track.color : 'rgba(255,255,255,0.8)',
+                        pointerEvents: 'none',
+                        whiteSpace: 'nowrap',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {noteWidth > 30 ? pitchToName(note.pitch) : ''}
+                    </span>
+                  )}
+                  {/* Resize handle (hidden in velocity mode) */}
+                  {!velocityMode && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: `${RESIZE_HANDLE_WIDTH}px`,
+                        cursor: 'ew-resize',
+                        backgroundColor: 'rgba(0,0,0,0.1)',
+                      }}
+                    />
+                  )}
                 </div>
               );
             })}

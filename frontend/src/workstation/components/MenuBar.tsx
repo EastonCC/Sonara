@@ -88,6 +88,7 @@ const SHORTCUTS = [
     { keys: 'Ctrl+ −', desc: 'Zoom out' },
     { keys: 'Ctrl+0', desc: 'Reset zoom' },
     { keys: 'G', desc: 'Toggle snap to grid' },
+    { keys: 'Ctrl+H', desc: 'Toggle history panel' },
   ]},
   { category: 'Keyboard', items: [
     { keys: 'A − L', desc: 'Play notes (lower row)' },
@@ -267,6 +268,8 @@ const MenuBar: React.FC = () => {
   const snapEnabled = useDawStore((s) => s.snapEnabled);
   const zoom = useDawStore((s) => s.zoom);
   const setZoom = useDawStore((s) => s.setZoom);
+  const showHistoryPanel = useDawStore((s) => s.showHistoryPanel);
+  const toggleHistoryPanel = useDawStore((s) => s.toggleHistoryPanel);
 
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -338,6 +341,8 @@ const MenuBar: React.FC = () => {
           { label: 'Reset Zoom', shortcut: 'Ctrl+0', action: () => setZoom(1) },
           { divider: true, label: '' },
           { label: `${snapEnabled ? '✓ ' : ''}Snap to Grid`, shortcut: 'G', action: toggleSnap },
+          { divider: true, label: '' },
+          { label: `${showHistoryPanel ? '✓ ' : ''}History Panel`, shortcut: 'Ctrl+H', action: toggleHistoryPanel },
         ],
       },
     },

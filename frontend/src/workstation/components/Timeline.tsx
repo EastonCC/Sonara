@@ -394,6 +394,7 @@ const Timeline: React.FC<TimelineProps> = ({ mode, trackId, showAutomation }) =>
       {track.clips.map((clip) => {
         const isSelected = selectedClipId === clip.id;
         const isDragging = dragState?.clipId === clip.id;
+        const isEditing = pianoRollClipId === clip.id;
 
         return (
           <div
@@ -415,13 +416,15 @@ const Timeline: React.FC<TimelineProps> = ({ mode, trackId, showAutomation }) =>
               backgroundColor: track.color,
               left: `${clip.startBeat * pixelsPerBeat}px`,
               width: `${clip.duration * pixelsPerBeat}px`,
-              boxShadow: isSelected
+              boxShadow: isEditing
+                ? 'inset 0 0 0 2px #ff4444, 0 0 8px rgba(255,68,68,0.4)'
+                : isSelected
                 ? 'inset 0 0 0 2px #ffffff'
                 : isDragging
                 ? '0 4px 16px rgba(0,0,0,0.4)'
                 : 'none',
               opacity: isDragging ? 0.85 : 1,
-              zIndex: isDragging ? 50 : isSelected ? 5 : 1,
+              zIndex: isDragging ? 50 : isEditing ? 6 : isSelected ? 5 : 1,
               cursor: isDragging ? 'grabbing' : 'grab',
             }}
           >

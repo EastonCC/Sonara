@@ -38,7 +38,7 @@ const DEFAULT_TRACKS: Track[] = [
     ],
   },
   {
-    id: 3, name: 'Synth Line', type: 'instrument', instrument: 'sawtooth',
+    id: 3, name: 'Synth Line', type: 'instrument', instrument: 'saw-lead',
     color: '#f1c40f', muted: false, solo: false, volume: 70, pan: 30,
     clips: [{ id: 4, name: 'Synth Line', startBeat: 8, duration: 12, notes: [
       { id: 401, pitch: 48, startBeat: 0, duration: 3, velocity: 90 },
@@ -137,6 +137,7 @@ interface DawStore {
   moveClip: (clipId: number, newStartBeat: number, newTrackId?: number) => void;
   resizeClip: (clipId: number, newDuration: number, fromLeft?: boolean) => void;
   deleteClip: (clipId: number) => void;
+  renameClip: (clipId: number, name: string) => void;
   snapToBeat: (beat: number) => number;
 
   pianoRollClipId: number | null;
@@ -154,6 +155,8 @@ interface DawStore {
   deleteNote: (clipId: number, noteId: number) => void;
   deleteSelectedNotes: (clipId: number) => void;
   setNoteVelocity: (clipId: number, noteId: number, velocity: number) => void;
+  setNotesVelocity: (clipId: number, noteIds: number[], velocity: number) => void;
+  humanizeNotes: (clipId: number, noteIds: number[], timingAmount: number, velocityAmount: number) => void;
 
   undo: () => void;
   redo: () => void;
@@ -163,6 +166,11 @@ interface DawStore {
   undoLabel: string;
   redoLabel: string;
   undoVersion: number;
+  // History panel
+  showHistoryPanel: boolean;
+  toggleHistoryPanel: () => void;
+  getHistoryList: () => { labels: string[]; currentIndex: number };
+  jumpToHistory: (index: number) => void;
 
   // Clipboard
   clipboardClip: Clip | null;
@@ -431,6 +439,11 @@ const useDawStore = create<DawStore>((set, get) => ({
     pianoRollTrackId: s.pianoRollClipId === clipId ? null : s.pianoRollTrackId,
     tracks: s.tracks.map((t) => ({ ...t, clips: t.clips.filter((c) => c.id !== clipId) })),
   })),
+  renameClip: (clipId, name) => withUndo(set, 'Rename Clip', (s) => ({
+    tracks: s.tracks.map((t) => ({
+      ...t, clips: t.clips.map((c) => c.id === clipId ? { ...c, name } : c),
+    })),
+  })),
   snapToBeat: (beat: number) => Math.round(beat),
 
   // Piano Roll
@@ -522,6 +535,38 @@ const useDawStore = create<DawStore>((set, get) => ({
     })),
   })),
 
+  setNotesVelocity: (clipId, noteIds, velocity) => withUndo(set, 'Change Velocity', (s) => {
+    const idSet = new Set(noteIds);
+    return {
+      tracks: s.tracks.map((t) => ({
+        ...t, clips: t.clips.map((c) => c.id === clipId ? {
+          ...c, notes: c.notes.map((n) => idSet.has(n.id)
+            ? { ...n, velocity: Math.max(1, Math.min(127, velocity)) } : n),
+        } : c),
+      })),
+    };
+  }),
+
+  humanizeNotes: (clipId, noteIds, timingAmount, velocityAmount) => withUndo(set, 'Humanize', (s) => {
+    const idSet = new Set(noteIds);
+    return {
+      tracks: s.tracks.map((t) => ({
+        ...t, clips: t.clips.map((c) => c.id === clipId ? {
+          ...c, notes: c.notes.map((n) => {
+            if (!idSet.has(n.id)) return n;
+            // Random timing offset: up to ±timingAmount beats (e.g. 0.05 = 5% of a beat)
+            const timeShift = (Math.random() - 0.5) * 2 * timingAmount;
+            const newStart = Math.max(0, n.startBeat + timeShift);
+            // Random velocity offset: up to ±velocityAmount
+            const velShift = Math.round((Math.random() - 0.5) * 2 * velocityAmount);
+            const newVel = Math.max(1, Math.min(127, n.velocity + velShift));
+            return { ...n, startBeat: newStart, velocity: newVel };
+          }),
+        } : c),
+      })),
+    };
+  }),
+
   // Undo/Redo
   pushUndoSnapshot: (label: string) => {
     const { tracks, undoVersion } = get();
@@ -563,6 +608,62 @@ const useDawStore = create<DawStore>((set, get) => ({
   undoLabel: '',
   redoLabel: '',
   undoVersion: 0,
+
+  // History panel
+  showHistoryPanel: false,
+  toggleHistoryPanel: () => set((s) => ({ showHistoryPanel: !s.showHistoryPanel })),
+
+  getHistoryList: () => {
+    // Build a combined list: [undo entries..., CURRENT, redo entries (reversed)]
+    // Current state is at undoStack.length
+    const labels: string[] = [];
+    labels.push('Initial State');
+    for (const entry of undoStack) {
+      labels.push(entry.label);
+    }
+    // Redo stack is in reverse order (last popped = first to redo)
+    for (let i = redoStack.length - 1; i >= 0; i--) {
+      labels.push(redoStack[i].label);
+    }
+    return { labels, currentIndex: undoStack.length };
+  },
+
+  jumpToHistory: (targetIndex: number) => {
+    const currentIndex = undoStack.length;
+    if (targetIndex === currentIndex) return;
+
+    if (targetIndex < currentIndex) {
+      // Undo multiple times
+      const steps = currentIndex - targetIndex;
+      for (let i = 0; i < steps; i++) {
+        const current = get();
+        if (undoStack.length === 0) break;
+        const entry = undoStack.pop()!;
+        redoStack.push({ tracks: cloneTracks(current.tracks), label: entry.label });
+        set({ tracks: entry.tracks });
+      }
+    } else {
+      // Redo multiple times
+      const steps = targetIndex - currentIndex;
+      for (let i = 0; i < steps; i++) {
+        const current = get();
+        if (redoStack.length === 0) break;
+        const entry = redoStack.pop()!;
+        undoStack.push({ tracks: cloneTracks(current.tracks), label: entry.label });
+        set({ tracks: entry.tracks });
+      }
+    }
+
+    const prevLabel = undoStack.length > 0 ? undoStack[undoStack.length - 1].label : '';
+    const nextLabel = redoStack.length > 0 ? redoStack[redoStack.length - 1].label : '';
+    set({
+      canUndo: undoStack.length > 0,
+      canRedo: redoStack.length > 0,
+      undoLabel: prevLabel,
+      redoLabel: nextLabel,
+      undoVersion: get().undoVersion + 1,
+    });
+  },
 
   // Clipboard
   clipboardClip: null,

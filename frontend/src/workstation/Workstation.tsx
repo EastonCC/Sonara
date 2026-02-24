@@ -8,6 +8,7 @@ import Transport from './components/Transport';
 import TrackRow from './components/TrackRow';
 import Timeline from './components/Timeline';
 import PianoRoll from './components/PianoRoll';
+import HistoryPanel from './components/HistoryPanel';
 
 const TRACK_LIST_WIDTH = 280;
 const AUTOMATION_LANE_HEIGHT = 60;
@@ -139,6 +140,11 @@ const DAW = () => {
       // Snap toggle
       if (e.key === 'g' && !e.ctrlKey && !e.metaKey) {
         state.toggleSnap();
+      }
+      // History panel toggle
+      if ((e.ctrlKey || e.metaKey) && e.key === 'h') {
+        e.preventDefault();
+        state.toggleHistoryPanel();
       }
       // Save (placeholder)
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -348,6 +354,7 @@ const DAW = () => {
       </div>
 
       {pianoRollClipId && <PianoRoll />}
+      <HistoryPanel />
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
@@ -356,6 +363,7 @@ const DAW = () => {
         ::-webkit-scrollbar-track { background: #1a1a2e; }
         ::-webkit-scrollbar-thumb { background: #3a3a5e; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #4a4a7e; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
       `}</style>
     </div>
   );
