@@ -118,6 +118,7 @@ interface DawStore {
   addTrack: (type?: 'audio' | 'instrument') => void;
   deleteTrack: (trackId: number) => void;
   renameTrack: (trackId: number, name: string) => void;
+  reorderTrack: (fromIndex: number, toIndex: number) => void;
   duplicateTrack: (trackId: number) => void;
   setTrackColor: (trackId: number, color: string) => void;
   toggleMute: (trackId: number) => void;
@@ -261,6 +262,13 @@ const useDawStore = create<DawStore>((set, get) => ({
   renameTrack: (trackId, name) => withUndo(set, 'Rename Track', (s) => ({
     tracks: s.tracks.map((t) => t.id === trackId ? { ...t, name } : t),
   })),
+  reorderTrack: (fromIndex, toIndex) => withUndo(set, 'Reorder Track', (s) => {
+    if (fromIndex === toIndex) return {};
+    const newTracks = [...s.tracks];
+    const [moved] = newTracks.splice(fromIndex, 1);
+    newTracks.splice(toIndex, 0, moved);
+    return { tracks: newTracks };
+  }),
   duplicateTrack: (trackId) => withUndo(set, 'Duplicate Track', (s) => {
     const source = s.tracks.find((t) => t.id === trackId);
     if (!source) return {};

@@ -20,6 +20,9 @@ const DAW = () => {
   const addTrack = useDawStore((s) => s.addTrack);
 
   const [automationOpen, setAutomationOpen] = useState<Set<number>>(new Set());
+  const [dragTrackIdx, setDragTrackIdx] = useState<number | null>(null);
+  const [dropTargetIdx, setDropTargetIdx] = useState<number | null>(null);
+  const reorderTrack = useDawStore((s) => s.reorderTrack);
 
   const toggleAutomation = (trackId: number) => {
     setAutomationOpen((prev) => {
@@ -162,26 +165,106 @@ const DAW = () => {
           {/* ═══ Track rows ═══ */}
           {(() => {
             const hasSolo = tracks.some((t) => t.solo);
-            return tracks.map((track) => {
+            return tracks.map((track, index) => {
               const isGrayed = hasSolo && !track.solo;
+              const isDragging = dragTrackIdx === index;
+              // dropTargetIdx represents the insertion gap: "insert before this index"
+              // Show line above this row if dropTargetIdx === index
+              // Show line below last row if dropTargetIdx === tracks.length
+              const showLineAbove = dropTargetIdx === index
+                && dragTrackIdx !== null
+                && dragTrackIdx !== index
+                && dragTrackIdx !== index - 1;
+              const showLineBelow = index === tracks.length - 1
+                && dropTargetIdx === tracks.length
+                && dragTrackIdx !== null
+                && dragTrackIdx !== tracks.length - 1;
+
               return (
               <React.Fragment key={track.id}>
-                <div style={{
-                  ...styles.bodyRow,
-                  height: automationOpen.has(track.id) ? `${80 + 60}px` : '80px',
-                  opacity: isGrayed ? 0.35 : 1,
-                  transition: 'opacity 0.2s',
-                }} data-track-row={track.id}>
+                <div
+                  style={{
+                    ...styles.bodyRow,
+                    height: automationOpen.has(track.id) ? `${80 + 60}px` : '80px',
+                    opacity: isDragging ? 0.4 : isGrayed ? 0.35 : 1,
+                    transition: 'opacity 0.15s',
+                    position: 'relative',
+                  }}
+                  data-track-row={track.id}
+                  onDragOver={(e) => {
+                    if (dragTrackIdx === null) return;
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    // Determine if cursor is in top or bottom half
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const y = e.clientY - rect.top;
+                    const half = rect.height / 2;
+                    if (y < half) {
+                      setDropTargetIdx(index); // insert before this row
+                    } else {
+                      setDropTargetIdx(index + 1); // insert after this row
+                    }
+                  }}
+                  onDragLeave={(e) => {
+                    // Only clear if actually leaving the row (not entering a child)
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                      setDropTargetIdx(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (dragTrackIdx !== null && dropTargetIdx !== null) {
+                      // Calculate actual target: if dragging down, account for removal
+                      let targetIdx = dropTargetIdx;
+                      if (dragTrackIdx < targetIdx) targetIdx -= 1;
+                      if (dragTrackIdx !== targetIdx) {
+                        reorderTrack(dragTrackIdx, targetIdx);
+                      }
+                    }
+                    setDragTrackIdx(null);
+                    setDropTargetIdx(null);
+                  }}
+                >
+                  {/* Insertion indicator — above */}
+                  {showLineAbove && (
+                    <div style={styles.dropIndicator} />
+                  )}
+
                   <div style={{
                     ...styles.trackListCell,
                     height: automationOpen.has(track.id) ? `${80 + 60}px` : '80px',
+                    display: 'flex',
+                    flexDirection: 'column',
                   }}>
-                    <div style={{ height: '80px' }}>
-                      <TrackRow
-                        trackId={track.id}
-                        automationOpen={automationOpen.has(track.id)}
-                        onToggleAutomation={() => toggleAutomation(track.id)}
-                      />
+                    <div style={{ height: '80px', display: 'flex' }}>
+                      {/* Drag handle */}
+                      <div
+                        draggable
+                        onDragStart={(e) => {
+                          setDragTrackIdx(index);
+                          e.dataTransfer.effectAllowed = 'move';
+                          const ghost = document.createElement('div');
+                          ghost.style.opacity = '0';
+                          document.body.appendChild(ghost);
+                          e.dataTransfer.setDragImage(ghost, 0, 0);
+                          setTimeout(() => document.body.removeChild(ghost), 0);
+                        }}
+                        onDragEnd={() => {
+                          setDragTrackIdx(null);
+                          setDropTargetIdx(null);
+                        }}
+                        style={styles.dragHandle}
+                        title="Drag to reorder"
+                      >
+                        ⠿
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <TrackRow
+                          trackId={track.id}
+                          automationOpen={automationOpen.has(track.id)}
+                          onToggleAutomation={() => toggleAutomation(track.id)}
+                        />
+                      </div>
                     </div>
                     {automationOpen.has(track.id) && (
                       <div style={styles.automationLabel}>
@@ -196,6 +279,11 @@ const DAW = () => {
                       showAutomation={automationOpen.has(track.id)}
                     />
                   </div>
+
+                  {/* Insertion indicator — below last track */}
+                  {showLineBelow && (
+                    <div style={{ ...styles.dropIndicator, top: 'auto', bottom: '-2px' }} />
+                  )}
                 </div>
               </React.Fragment>
               );
@@ -323,6 +411,30 @@ const styles: { [key: string]: React.CSSProperties } = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  dragHandle: {
+    width: '18px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'grab',
+    color: '#555',
+    fontSize: '14px',
+    userSelect: 'none',
+    flexShrink: 0,
+    borderRight: '1px solid #2a2a4e',
+  },
+  dropIndicator: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '-2px',
+    height: '3px',
+    backgroundColor: '#00d4ff',
+    borderRadius: '2px',
+    zIndex: 50,
+    boxShadow: '0 0 8px rgba(0, 212, 255, 0.5)',
+    pointerEvents: 'none',
   },
 };
 
