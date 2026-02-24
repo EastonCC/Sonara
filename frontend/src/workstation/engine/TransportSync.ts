@@ -237,3 +237,12 @@ export const dispose = () => {
   stopTrackSubscription();
   audioEngine.dispose();
 };
+
+// Sampler loading state
+export const isTrackSamplerLoaded = (trackId: number): boolean => {
+  return audioEngine.isTrackSamplerLoaded(trackId);
+};
+
+export const onSamplerLoad = (cb: () => void): (() => void) => {
+  return audioEngine.onSamplerLoad(cb);
+};

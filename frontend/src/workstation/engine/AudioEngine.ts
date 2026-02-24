@@ -1,5 +1,6 @@
 import * as Tone from 'tone';
 import { Track, MidiNote, InstrumentPreset } from '../models/types';
+import { getPreset, InstrumentPresetDef } from '../models/presets';
 
 // Convert MIDI note number to note name (e.g. 60 -> 'C4')
 const midiToNote = (midi: number): string => {
@@ -15,7 +16,8 @@ const velocityToGain = (velocity: number): number => {
 };
 
 interface TrackNodes {
-  synth: Tone.PolySynth | Tone.NoiseSynth;
+  synth: Tone.PolySynth | Tone.NoiseSynth | Tone.Sampler;
+  samplerLoaded: boolean; // true when sampler samples are loaded
   gain: Tone.Gain;
   panner: Tone.Panner;
   // Effects
@@ -38,10 +40,34 @@ class AudioEngine {
   private scheduledEvents: number[] = [];
   private _pendingAudioStarts: { player: Tone.Player; offset: number }[] = [];
 
+  // Cache of loaded sampler buffers — keyed by preset ID
+  // Once a sampler's buffers are loaded, reuse them instead of re-downloading
+  private samplerBufferCache: Map<string, Record<string, Tone.ToneAudioBuffer>> = new Map();
+
+  // Callbacks for sampler load state changes
+  private onSamplerLoadCallbacks: Set<() => void> = new Set();
+
   // Preview synth for real-time note audition (piano roll dragging)
-  private previewSynth: Tone.PolySynth | null = null;
+  private previewSynth: Tone.PolySynth | Tone.Sampler | null = null;
   private previewGain: Tone.Gain | null = null;
   private activePreviewNotes: Set<string> = new Set();
+
+  // Subscribe to sampler load events (for UI loading indicators)
+  onSamplerLoad(cb: () => void): () => void {
+    this.onSamplerLoadCallbacks.add(cb);
+    return () => this.onSamplerLoadCallbacks.delete(cb);
+  }
+
+  private notifySamplerLoad(): void {
+    this.onSamplerLoadCallbacks.forEach((cb) => cb());
+  }
+
+  // Check if a track's sampler is loaded
+  isTrackSamplerLoaded(trackId: number): boolean {
+    const nodes = this.trackNodes.get(trackId);
+    if (!nodes) return true;
+    return nodes.samplerLoaded;
+  }
 
   // Must be called from a user gesture (click/tap)
   async initialize(): Promise<void> {
@@ -55,59 +81,114 @@ class AudioEngine {
     return this.isInitialized;
   }
 
-  // Create a synth based on instrument preset
-  private createSynth(preset: InstrumentPreset, trackType: string): Tone.PolySynth {
-    switch (preset) {
-      case 'sawtooth':
-        return new Tone.PolySynth(Tone.Synth, {
-          oscillator: { type: 'sawtooth' },
-          envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.4 },
+  // Create a synth or sampler based on preset ID
+  private createSynth(presetId: InstrumentPreset, _trackType: string): Tone.PolySynth | Tone.Sampler {
+    const preset = getPreset(presetId);
+
+    if (preset && preset.type === 'sampler' && preset.samplerConfig) {
+      const cfg = preset.samplerConfig;
+
+      // Check if we have cached buffers for this preset
+      const cachedBuffers = this.samplerBufferCache.get(presetId);
+      if (cachedBuffers) {
+        // Create sampler from cached buffers — instant, no network
+        const sampler = new Tone.Sampler({
+          urls: {},
+          release: cfg.release ?? 1,
         });
-      case 'square':
-        return new Tone.PolySynth(Tone.Synth, {
-          oscillator: { type: 'square' },
-          envelope: { attack: 0.01, decay: 0.15, sustain: 0.3, release: 0.3 },
-        });
-      case 'sine':
-        return new Tone.PolySynth(Tone.Synth, {
-          oscillator: { type: 'sine' },
-          envelope: { attack: 0.05, decay: 0.2, sustain: 0.5, release: 0.8 },
-        });
-      case 'fm':
-        return new Tone.PolySynth(Tone.FMSynth, {
-          modulationIndex: 3,
-          envelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.4 },
-        });
-      case 'am':
-        return new Tone.PolySynth(Tone.AMSynth, {
-          envelope: { attack: 0.02, decay: 0.2, sustain: 0.3, release: 0.4 },
-        });
-      case 'membrane':
-        return new Tone.PolySynth(Tone.MembraneSynth, {
-          envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.1 },
-        });
-      case 'metal':
-        return new Tone.PolySynth(Tone.MetalSynth as any, {
-          envelope: { attack: 0.001, decay: 0.4, release: 0.2 },
-        });
-      case 'pluck':
-        // PluckSynth doesn't support PolySynth, use a pluck-like regular synth
-        return new Tone.PolySynth(Tone.Synth, {
-          oscillator: { type: 'triangle' },
-          envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 0.1 },
-        });
-      case 'fat':
-        return new Tone.PolySynth(Tone.Synth, {
-          oscillator: { type: 'fatsawtooth', spread: 20, count: 3 } as any,
-          envelope: { attack: 0.03, decay: 0.2, sustain: 0.4, release: 0.5 },
-        });
-      case 'triangle':
-      default:
-        return new Tone.PolySynth(Tone.Synth, {
-          oscillator: { type: 'triangle' },
-          envelope: { attack: 0.02, decay: 0.1, sustain: 0.3, release: 0.4 },
-        });
+        // Manually add cached buffers
+        for (const [note, buffer] of Object.entries(cachedBuffers)) {
+          sampler.add(note, buffer);
+        }
+        // Mark as already loaded after a microtask (so trackNodes is set first)
+        setTimeout(() => {
+          for (const [, nodes] of this.trackNodes) {
+            if (nodes.synth === sampler) {
+              nodes.samplerLoaded = true;
+            }
+          }
+          this.notifySamplerLoad();
+        }, 0);
+        return sampler;
+      }
+
+      // No cache — load samples individually so 404s don't break everything
+      const sampler = new Tone.Sampler({
+        urls: {},
+        release: cfg.release ?? 1,
+      });
+
+      const noteEntries = Object.entries(cfg.urls);
+      let loaded = 0;
+      let failed = 0;
+      const total = noteEntries.length;
+
+      const checkDone = () => {
+        if (loaded + failed >= total) {
+          // Cache whatever loaded successfully
+          const buffers: Record<string, Tone.ToneAudioBuffer> = {};
+          for (const [note] of noteEntries) {
+            try {
+              const buf = (sampler as any)._buffers?.get(
+                Tone.Frequency(note).toMidi()
+              );
+              if (buf && buf.loaded) buffers[note] = buf;
+            } catch { /* skip */ }
+          }
+          if (Object.keys(buffers).length > 0) {
+            this.samplerBufferCache.set(presetId, buffers);
+          }
+          // Mark as loaded
+          for (const [, nodes] of this.trackNodes) {
+            if (nodes.synth === sampler) {
+              nodes.samplerLoaded = true;
+            }
+          }
+          this.notifySamplerLoad();
+          if (failed > 0) {
+            console.warn(`[AudioEngine] ${presetId}: ${loaded}/${total} samples loaded, ${failed} failed`);
+          }
+        }
+      };
+
+      for (const [note, filename] of noteEntries) {
+        const url = cfg.baseUrl + filename;
+        const buf = new Tone.ToneAudioBuffer(url,
+          () => {
+            // Success — add to sampler
+            try { sampler.add(note, buf); } catch { /* ignore */ }
+            loaded++;
+            checkDone();
+          },
+          () => {
+            // Fail — skip this note, sampler will pitch-shift from neighbors
+            failed++;
+            checkDone();
+          }
+        );
+      }
+
+      return sampler;
     }
+
+    if (preset && preset.type === 'synth' && preset.synthConfig) {
+      const cfg = preset.synthConfig;
+      const synthMap: Record<string, any> = {
+        'Synth': Tone.Synth,
+        'FMSynth': Tone.FMSynth,
+        'AMSynth': Tone.AMSynth,
+        'MembraneSynth': Tone.MembraneSynth,
+        'MetalSynth': Tone.MetalSynth,
+      };
+      const SynthClass = synthMap[cfg.synthType] || Tone.Synth;
+      return new Tone.PolySynth(SynthClass, cfg.options);
+    }
+
+    // Fallback: basic triangle
+    return new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: 'triangle' },
+      envelope: { attack: 0.02, decay: 0.1, sustain: 0.3, release: 0.4 },
+    });
   }
 
   // Create or update the audio nodes for a track
@@ -127,6 +208,7 @@ class AudioEngine {
 
       nodes = {
         synth, gain, panner, dryGain,
+        samplerLoaded: synth instanceof Tone.Sampler ? false : true,
         reverb: null, reverbSend: null,
         delay: null, delaySend: null,
         filter: null,
@@ -253,7 +335,7 @@ class AudioEngine {
             const remainingDuration = noteEndTime - startTime;
 
             const eventId = Tone.getTransport().schedule((time) => {
-              if (nodes.synth instanceof Tone.PolySynth) {
+              if (nodes.synth instanceof Tone.PolySynth || nodes.synth instanceof Tone.Sampler) {
                 nodes.synth.triggerAttackRelease(
                   noteName,
                   remainingDuration,
@@ -268,7 +350,7 @@ class AudioEngine {
           } else {
             // Note starts in the future — schedule normally
             const eventId = Tone.getTransport().schedule((time) => {
-              if (nodes.synth instanceof Tone.PolySynth) {
+              if (nodes.synth instanceof Tone.PolySynth || nodes.synth instanceof Tone.Sampler) {
                 nodes.synth.triggerAttackRelease(
                   noteName,
                   durationInSeconds,
@@ -442,7 +524,7 @@ class AudioEngine {
   // Release any currently sounding notes
   private releaseAllNotes(): void {
     this.trackNodes.forEach((nodes) => {
-      if (nodes.synth instanceof Tone.PolySynth) {
+      if (nodes.synth instanceof Tone.PolySynth || nodes.synth instanceof Tone.Sampler) {
         nodes.synth.releaseAll();
       }
     });
@@ -475,7 +557,9 @@ class AudioEngine {
     const nodes = this.trackNodes.get(track.id);
     if (nodes) {
       // Release and dispose old synth
-      if (nodes.synth instanceof Tone.PolySynth) {
+      if (nodes.synth instanceof Tone.PolySynth || nodes.synth instanceof Tone.Sampler) {
+        nodes.synth.releaseAll();
+      } else if (nodes.synth instanceof Tone.Sampler) {
         nodes.synth.releaseAll();
       }
       nodes.synth.dispose();
@@ -484,6 +568,7 @@ class AudioEngine {
       const newSynth = this.createSynth(track.instrument, track.type);
       newSynth.connect(nodes.gain);
       nodes.synth = newSynth;
+      nodes.samplerLoaded = newSynth instanceof Tone.Sampler ? false : true;
     }
   }
 
@@ -511,7 +596,7 @@ class AudioEngine {
   // Set the release time on the preview synth (for sustain mode)
   setPreviewRelease(seconds: number): void {
     this.ensurePreviewSynth();
-    if (this.previewSynth) {
+    if (this.previewSynth && this.previewSynth instanceof Tone.PolySynth) {
       this.previewSynth.set({ envelope: { release: seconds } });
     }
   }

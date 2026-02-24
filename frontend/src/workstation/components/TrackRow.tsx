@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { InstrumentPreset } from '../models/types';
 import useDawStore from '../state/dawStore';
-import { rebuildTrackSynth } from '../engine/TransportSync';
+import { rebuildTrackSynth, isTrackSamplerLoaded, onSamplerLoad } from '../engine/TransportSync';
 import { decodeAudioFile } from '../utils/AudioUtils';
 
 interface TrackRowProps {
@@ -11,11 +10,7 @@ interface TrackRowProps {
   onToggleAutomation?: () => void;
 }
 
-const INSTRUMENT_LABELS: Record<InstrumentPreset, string> = {
-  triangle: 'Triangle', sawtooth: 'Sawtooth', square: 'Square', sine: 'Sine',
-  fm: 'FM Synth', am: 'AM Synth', fat: 'Fat Saw', membrane: 'Membrane',
-  metal: 'Metal', pluck: 'Pluck',
-};
+import { getPreset, getPresetsByCategory, PRESETS } from '../models/presets';
 
 const TRACK_COLORS = [
   '#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#1abc9c',
@@ -35,6 +30,16 @@ const TrackRow: React.FC<TrackRowProps> = ({ trackId, automationOpen, onToggleAu
   const addAudioClip = useDawStore((s) => s.addAudioClip);
   const bpm = useDawStore((s) => s.bpm);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Track sampler loading state
+  const [samplerLoaded, setSamplerLoaded] = useState(() => isTrackSamplerLoaded(trackId));
+  useEffect(() => {
+    setSamplerLoaded(isTrackSamplerLoaded(trackId));
+    const unsub = onSamplerLoad(() => {
+      setSamplerLoaded(isTrackSamplerLoaded(trackId));
+    });
+    return unsub;
+  }, [trackId, track?.instrument]);
 
   const handleAudioImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -58,11 +63,13 @@ const TrackRow: React.FC<TrackRowProps> = ({ trackId, automationOpen, onToggleAu
 
   const trackIcon = track.type === 'audio' ? '🎤' : track.type === 'drums' ? '🥁' : '🎹';
 
-  const handleInstrumentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newInstrument = e.target.value as InstrumentPreset;
-    setTrackInstrument(track.id, newInstrument);
-    rebuildTrackSynth({ ...track, instrument: newInstrument });
-    e.target.blur();
+  const handleInstrumentChange = (presetId: string) => {
+    const presetDef = getPreset(presetId);
+    if (presetDef?.type === 'sampler') {
+      setSamplerReady(false); // show loading until samples arrive
+    }
+    setTrackInstrument(track.id, presetId);
+    rebuildTrackSynth({ ...track, instrument: presetId });
   };
 
   // ─── Menu actions ───
@@ -227,13 +234,27 @@ const TrackRow: React.FC<TrackRowProps> = ({ trackId, automationOpen, onToggleAu
           <div style={styles.instrumentRow}>
             <select
               value={track.instrument}
-              onChange={handleInstrumentChange}
+              onChange={(e) => handleInstrumentChange(e.target.value)}
               style={styles.instrumentSelect}
             >
-              {Object.entries(INSTRUMENT_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
+              {Array.from(getPresetsByCategory()).map(([category, presets]) => (
+                <optgroup key={category} label={category}>
+                  {presets.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.type === 'sampler' ? '🎵 ' : '⚡ '}{p.name}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
+            {!samplerLoaded && (
+              <span style={{
+                fontSize: '10px', color: '#00d4ff', marginLeft: '6px',
+                animation: 'pulse 1.5s ease-in-out infinite',
+              }}>
+                Loading...
+              </span>
+            )}
           </div>
         )}
         {track.type === 'audio' && (

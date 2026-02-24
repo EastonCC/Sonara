@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import useDawStore from '../state/dawStore';
-import { InstrumentPreset } from '../models/types';
 import { previewNoteOn, previewNoteOff, previewNoteOffSingle, rebuildTrackSynth, setPreviewRelease, rebuildPreviewSynth } from '../engine/TransportSync';
+import { getPresetsByCategory, getPreset } from '../models/presets';
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
@@ -37,11 +37,6 @@ const KEY_LABELS: Record<string, string> = {
   'k': 'K', 'o': 'O', 'l': 'L', 'p': 'P', ';': ';', "'": "'",
 };
 
-const INSTRUMENT_LABELS: Record<InstrumentPreset, string> = {
-  triangle: 'Triangle', sawtooth: 'Sawtooth', square: 'Square',
-  sine: 'Sine', fm: 'FM Synth', am: 'AM Synth',
-  fat: 'Fat Saw', membrane: 'Membrane', metal: 'Metal', pluck: 'Pluck',
-};
 
 interface KeyboardProps {
   clipId: number;
@@ -239,7 +234,7 @@ const Keyboard: React.FC<KeyboardProps> = ({ clipId, trackId }) => {
   // ─── Instrument change ───
 
   const handleInstrumentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newInstrument = e.target.value as InstrumentPreset;
+    const newInstrument = e.target.value;
     setTrackInstrument(track.id, newInstrument);
     rebuildTrackSynth({ ...track, instrument: newInstrument });
     rebuildPreviewSynth(newInstrument);
@@ -296,8 +291,14 @@ const Keyboard: React.FC<KeyboardProps> = ({ clipId, trackId }) => {
             onChange={handleInstrumentChange}
             style={styles.instrumentSelect}
           >
-            {Object.entries(INSTRUMENT_LABELS).map(([val, lab]) => (
-              <option key={val} value={val}>{lab}</option>
+            {Array.from(getPresetsByCategory()).map(([category, presets]) => (
+              <optgroup key={category} label={category}>
+                {presets.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.type === 'sampler' ? '🎵 ' : '⚡ '}{p.name}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>
