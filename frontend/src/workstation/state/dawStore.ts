@@ -114,6 +114,9 @@ interface DawStore {
   tracks: Track[];
   addTrack: () => void;
   deleteTrack: (trackId: number) => void;
+  renameTrack: (trackId: number, name: string) => void;
+  duplicateTrack: (trackId: number) => void;
+  setTrackColor: (trackId: number, color: string) => void;
   toggleMute: (trackId: number) => void;
   toggleSolo: (trackId: number) => void;
   setTrackVolume: (trackId: number, volume: number) => void;
@@ -224,6 +227,30 @@ const useDawStore = create<DawStore>((set, get) => ({
   })),
   deleteTrack: (trackId) => withUndo(set, 'Delete Track', (s) => ({
     tracks: s.tracks.filter((t) => t.id !== trackId),
+  })),
+  renameTrack: (trackId, name) => withUndo(set, 'Rename Track', (s) => ({
+    tracks: s.tracks.map((t) => t.id === trackId ? { ...t, name } : t),
+  })),
+  duplicateTrack: (trackId) => withUndo(set, 'Duplicate Track', (s) => {
+    const source = s.tracks.find((t) => t.id === trackId);
+    if (!source) return {};
+    const newId = Date.now();
+    const cloned: Track = {
+      ...JSON.parse(JSON.stringify(source)),
+      id: newId,
+      name: `${source.name} (copy)`,
+      clips: source.clips.map((c) => ({
+        ...JSON.parse(JSON.stringify(c)),
+        id: Date.now() + Math.floor(Math.random() * 10000),
+      })),
+    };
+    const idx = s.tracks.findIndex((t) => t.id === trackId);
+    const newTracks = [...s.tracks];
+    newTracks.splice(idx + 1, 0, cloned);
+    return { tracks: newTracks };
+  }),
+  setTrackColor: (trackId, color) => withUndo(set, 'Change Color', (s) => ({
+    tracks: s.tracks.map((t) => t.id === trackId ? { ...t, color } : t),
   })),
   toggleMute: (trackId) => set((s) => ({
     tracks: s.tracks.map((t) => t.id === trackId ? { ...t, muted: !t.muted } : t),
