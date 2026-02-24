@@ -50,6 +50,13 @@ const DAW = () => {
   const undo = useDawStore((s) => s.undo);
   const redo = useDawStore((s) => s.redo);
 
+  const copyClip = useDawStore((s) => s.copyClip);
+  const pasteClip = useDawStore((s) => s.pasteClip);
+  const copyNotes = useDawStore((s) => s.copyNotes);
+  const pasteNotes = useDawStore((s) => s.pasteNotes);
+  const duplicateClipAction = useDawStore((s) => s.duplicateClip);
+  const selectedNoteIds = useDawStore((s) => s.selectedNoteIds);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
@@ -60,10 +67,31 @@ const DAW = () => {
         e.preventDefault();
         redo();
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        e.preventDefault();
+        // If piano roll is open with selected notes, copy notes; otherwise copy clip
+        if (pianoRollClipId && selectedNoteIds.size > 0) {
+          copyNotes();
+        } else {
+          copyClip();
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        e.preventDefault();
+        if (pianoRollClipId) {
+          pasteNotes();
+        } else {
+          pasteClip();
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        duplicateClipAction();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo]);
+  }, [undo, redo, copyClip, pasteClip, copyNotes, pasteNotes, duplicateClipAction, pianoRollClipId, selectedNoteIds]);
 
   return (
     <div style={styles.container}>

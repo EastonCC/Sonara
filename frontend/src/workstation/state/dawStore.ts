@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Track, InstrumentPreset, TrackEffects, DEFAULT_EFFECTS, AutomationPoint } from '../models/types';
+import { Track, Clip, MidiNote, InstrumentPreset, TrackEffects, DEFAULT_EFFECTS, AutomationPoint } from '../models/types';
 
 const TRACK_COLORS = ['#e74c3c', '#9b59b6', '#3498db', '#2ecc71', '#f1c40f', '#e67e22', '#1abc9c'];
 
@@ -162,6 +162,15 @@ interface DawStore {
   undoLabel: string;
   redoLabel: string;
   undoVersion: number;
+
+  // Clipboard
+  clipboardClip: Clip | null;
+  clipboardNotes: MidiNote[] | null;
+  copyClip: () => void;
+  pasteClip: () => void;
+  copyNotes: () => void;
+  pasteNotes: () => void;
+  duplicateClip: (clipId?: number) => void;
 
   zoom: number;
   setZoom: (zoom: number) => void;
@@ -535,6 +544,151 @@ const useDawStore = create<DawStore>((set, get) => ({
   undoLabel: '',
   redoLabel: '',
   undoVersion: 0,
+
+  // Clipboard
+  clipboardClip: null,
+  clipboardNotes: null,
+
+  copyClip: () => {
+    const { selectedClipId, tracks } = get();
+    if (!selectedClipId) return;
+    for (const track of tracks) {
+      const clip = track.clips.find((c) => c.id === selectedClipId);
+      if (clip) {
+        set({ clipboardClip: { ...clip, notes: clip.notes.map((n) => ({ ...n })) } });
+        return;
+      }
+    }
+  },
+
+  pasteClip: () => {
+    const state = get();
+    const { clipboardClip, currentTime, bpm, tracks } = state;
+    if (!clipboardClip) return;
+
+    // Find which track the original clip was on, or use the track of the currently selected clip
+    let targetTrackId: number | null = null;
+    if (state.selectedClipId) {
+      for (const track of tracks) {
+        if (track.clips.some((c) => c.id === state.selectedClipId)) {
+          targetTrackId = track.id;
+          break;
+        }
+      }
+    }
+    if (!targetTrackId) {
+      // Find a compatible track
+      const isAudio = !!clipboardClip.audioFileUrl;
+      const compatible = tracks.find((t) => isAudio ? t.type === 'audio' : t.type !== 'audio');
+      if (compatible) targetTrackId = compatible.id;
+    }
+    if (!targetTrackId) return;
+
+    const pasteBeat = (currentTime * bpm) / 60;
+    const newClipId = Date.now() + Math.floor(Math.random() * 1000);
+
+    withUndo(set, 'Paste Clip', (s) => ({
+      tracks: s.tracks.map((t) => t.id === targetTrackId ? {
+        ...t,
+        clips: [...t.clips, {
+          ...clipboardClip,
+          id: newClipId,
+          startBeat: Math.max(0, Math.round(pasteBeat)),
+          notes: clipboardClip.notes.map((n) => ({
+            ...n,
+            id: Date.now() + Math.floor(Math.random() * 10000) + n.id,
+          })),
+        }],
+      } : t),
+      selectedClipId: newClipId,
+    }));
+  },
+
+  copyNotes: () => {
+    const { pianoRollClipId, selectedNoteIds, tracks } = get();
+    if (!pianoRollClipId || selectedNoteIds.size === 0) return;
+    for (const track of tracks) {
+      const clip = track.clips.find((c) => c.id === pianoRollClipId);
+      if (clip) {
+        const notes = clip.notes.filter((n) => selectedNoteIds.has(n.id)).map((n) => ({ ...n }));
+        if (notes.length > 0) set({ clipboardNotes: notes });
+        return;
+      }
+    }
+  },
+
+  pasteNotes: () => {
+    const state = get();
+    const { clipboardNotes, pianoRollClipId, currentTime, bpm } = state;
+    if (!clipboardNotes || !pianoRollClipId || clipboardNotes.length === 0) return;
+
+    // Find the clip and its start beat
+    let clipStartBeat = 0;
+    for (const track of state.tracks) {
+      const clip = track.clips.find((c) => c.id === pianoRollClipId);
+      if (clip) { clipStartBeat = clip.startBeat; break; }
+    }
+
+    // Calculate paste position relative to clip start
+    const playheadBeat = (currentTime * bpm) / 60;
+    const pasteOffsetBeat = Math.max(0, playheadBeat - clipStartBeat);
+
+    // Find earliest note in clipboard to use as reference
+    const earliestBeat = Math.min(...clipboardNotes.map((n) => n.startBeat));
+    const beatShift = pasteOffsetBeat - earliestBeat;
+
+    const newNoteIds: number[] = [];
+
+    withUndo(set, 'Paste Notes', (s) => ({
+      tracks: s.tracks.map((t) => ({
+        ...t,
+        clips: t.clips.map((c) => {
+          if (c.id !== pianoRollClipId) return c;
+          const pastedNotes = clipboardNotes.map((n) => {
+            const newId = Date.now() + Math.floor(Math.random() * 10000) + n.id;
+            newNoteIds.push(newId);
+            return {
+              ...n,
+              id: newId,
+              startBeat: n.startBeat + beatShift,
+            };
+          });
+          return { ...c, notes: [...c.notes, ...pastedNotes] };
+        }),
+      })),
+      selectedNoteIds: new Set(newNoteIds),
+    }));
+  },
+
+  // Duplicate selected clip (place right after it)
+  duplicateClip: (clipId?: number) => {
+    const state = get();
+    const id = clipId || state.selectedClipId;
+    if (!id) return;
+
+    for (const track of state.tracks) {
+      const clip = track.clips.find((c) => c.id === id);
+      if (clip) {
+        const newClipId = Date.now() + Math.floor(Math.random() * 1000);
+        withUndo(set, 'Duplicate Clip', (s) => ({
+          tracks: s.tracks.map((t) => t.id === track.id ? {
+            ...t,
+            clips: [...t.clips, {
+              ...clip,
+              id: newClipId,
+              startBeat: clip.startBeat + clip.duration,
+              notes: clip.notes.map((n) => ({
+                ...n,
+                id: Date.now() + Math.floor(Math.random() * 10000) + n.id,
+              })),
+            }],
+          } : t),
+          selectedClipId: newClipId,
+        }));
+        return;
+      }
+    }
+  },
 
   zoom: 1,
   setZoom: (zoom) => set({ zoom }),
