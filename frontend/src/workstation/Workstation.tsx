@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import useDawStore from './state/dawStore';
-import { initAudio, dispose } from './engine/TransportSync';
+import { initAudio, dispose, play as enginePlay, pause as enginePause } from './engine/TransportSync';
 import MenuBar from './components/MenuBar';
 import Transport from './components/Transport';
 import TrackRow from './components/TrackRow';
@@ -18,6 +18,7 @@ const DAW = () => {
   const pianoRollClipId = useDawStore((s) => s.pianoRollClipId);
   const tracks = useDawStore((s) => s.tracks);
   const addTrack = useDawStore((s) => s.addTrack);
+
   const [automationOpen, setAutomationOpen] = useState<Set<number>>(new Set());
 
   const toggleAutomation = (trackId: number) => {
@@ -47,51 +48,89 @@ const DAW = () => {
     return () => document.removeEventListener('click', handleUserGesture);
   }, []);
 
-  const undo = useDawStore((s) => s.undo);
-  const redo = useDawStore((s) => s.redo);
-
-  const copyClip = useDawStore((s) => s.copyClip);
-  const pasteClip = useDawStore((s) => s.pasteClip);
-  const copyNotes = useDawStore((s) => s.copyNotes);
-  const pasteNotes = useDawStore((s) => s.pasteNotes);
-  const duplicateClipAction = useDawStore((s) => s.duplicateClip);
-  const selectedNoteIds = useDawStore((s) => s.selectedNoteIds);
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't capture shortcuts when typing in an input
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+      const state = useDawStore.getState();
+
+      // Play/Pause
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (state.isPlaying) {
+          enginePause();
+        } else {
+          initAudio().then(() => enginePlay());
+        }
+        state.togglePlay();
+      }
+
       if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
         e.preventDefault();
-        undo();
+        state.undo();
       }
       if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
         e.preventDefault();
-        redo();
+        state.redo();
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
         e.preventDefault();
-        // If piano roll is open with selected notes, copy notes; otherwise copy clip
-        if (pianoRollClipId && selectedNoteIds.size > 0) {
-          copyNotes();
+        if (state.pianoRollClipId && state.selectedNoteIds.size > 0) {
+          state.copyNotes();
         } else {
-          copyClip();
+          state.copyClip();
         }
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         e.preventDefault();
-        if (pianoRollClipId) {
-          pasteNotes();
+        if (state.pianoRollClipId) {
+          state.pasteNotes();
         } else {
-          pasteClip();
+          state.pasteClip();
         }
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
         e.preventDefault();
-        duplicateClipAction();
+        state.duplicateClip();
+      }
+      // Zoom
+      if ((e.ctrlKey || e.metaKey) && (e.key === '=' || e.key === '+')) {
+        e.preventDefault();
+        state.setZoom(Math.min(4, state.zoom + 0.25));
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '-') {
+        e.preventDefault();
+        state.setZoom(Math.max(0.25, state.zoom - 0.25));
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === '0') {
+        e.preventDefault();
+        state.setZoom(1);
+      }
+      // Snap toggle
+      if (e.key === 'g' && !e.ctrlKey && !e.metaKey) {
+        state.toggleSnap();
+      }
+      // Save (placeholder)
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+      }
+      // Delete: notes if selected in piano roll, otherwise selected clip
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (state.pianoRollClipId && state.selectedNoteIds.size > 0) {
+          // PianoRoll handler will handle this
+          return;
+        }
+        if (state.selectedClipId) {
+          e.preventDefault();
+          state.deleteClip(state.selectedClipId);
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, copyClip, pasteClip, copyNotes, pasteNotes, duplicateClipAction, pianoRollClipId, selectedNoteIds]);
+  }, []);
 
   return (
     <div style={styles.container}>

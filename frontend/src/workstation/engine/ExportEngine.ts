@@ -1,0 +1,338 @@
+import * as Tone from 'tone';
+import { Track, InstrumentPreset } from '../models/types';
+import useDawStore from '../state/dawStore';
+
+// Convert MIDI note number to note name
+const midiToNote = (midi: number): string => {
+  const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const octave = Math.floor(midi / 12) - 1;
+  return `${noteNames[midi % 12]}${octave}`;
+};
+
+const velocityToGain = (velocity: number): number => velocity / 127;
+
+// Create a synth for offline rendering (same presets as AudioEngine)
+function createSynth(preset: InstrumentPreset): Tone.PolySynth {
+  switch (preset) {
+    case 'sawtooth':
+      return new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'sawtooth' },
+        envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.4 },
+      });
+    case 'square':
+      return new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'square' },
+        envelope: { attack: 0.01, decay: 0.15, sustain: 0.3, release: 0.3 },
+      });
+    case 'sine':
+      return new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'sine' },
+        envelope: { attack: 0.05, decay: 0.2, sustain: 0.5, release: 0.8 },
+      });
+    case 'fm':
+      return new Tone.PolySynth(Tone.FMSynth, {
+        modulationIndex: 3,
+        envelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.4 },
+      });
+    case 'am':
+      return new Tone.PolySynth(Tone.AMSynth, {
+        envelope: { attack: 0.02, decay: 0.2, sustain: 0.3, release: 0.4 },
+      });
+    case 'membrane':
+      return new Tone.PolySynth(Tone.MembraneSynth, {
+        envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.1 },
+      });
+    case 'metal':
+      return new Tone.PolySynth(Tone.MetalSynth as any, {
+        envelope: { attack: 0.001, decay: 0.4, release: 0.2 },
+      });
+    case 'pluck':
+      return new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'triangle' },
+        envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 0.1 },
+      });
+    case 'fat':
+      return new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'fatsawtooth', spread: 20, count: 3 } as any,
+        envelope: { attack: 0.03, decay: 0.2, sustain: 0.4, release: 0.5 },
+      });
+    case 'triangle':
+    default:
+      return new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: 'triangle' },
+        envelope: { attack: 0.02, decay: 0.1, sustain: 0.3, release: 0.4 },
+      });
+  }
+}
+
+// Calculate the end time of the project in seconds
+function getProjectDuration(tracks: Track[], bpm: number): number {
+  let maxBeat = 0;
+  for (const track of tracks) {
+    if (track.muted) continue;
+    for (const clip of track.clips) {
+      const endBeat = clip.startBeat + clip.duration;
+      if (endBeat > maxBeat) maxBeat = endBeat;
+    }
+  }
+  // Add a little tail for reverb/delay to ring out
+  return ((maxBeat + 2) / bpm) * 60;
+}
+
+// Interpolate automation value at a given beat
+function getAutomationValue(points: { beat: number; value: number }[], beat: number): number {
+  if (!points || points.length === 0) return 100;
+  if (beat <= points[0].beat) return points[0].value;
+  if (beat >= points[points.length - 1].beat) return points[points.length - 1].value;
+
+  for (let i = 0; i < points.length - 1; i++) {
+    if (beat >= points[i].beat && beat < points[i + 1].beat) {
+      const t = (beat - points[i].beat) / (points[i + 1].beat - points[i].beat);
+      return points[i].value + t * (points[i + 1].value - points[i].value);
+    }
+  }
+  return points[points.length - 1].value;
+}
+
+// Render the project to an AudioBuffer using Tone.Offline
+async function renderOffline(): Promise<{ buffer: AudioBuffer; projectName: string }> {
+  const { tracks, bpm, projectName } = useDawStore.getState();
+  const hasSolo = tracks.some((t) => t.solo);
+  const duration = getProjectDuration(tracks, bpm);
+
+  if (duration <= 0) throw new Error('Project is empty');
+
+  // Pre-load all audio clip buffers before entering offline context
+  const audioBuffers = new Map<number, Tone.ToneAudioBuffer>();
+  for (const track of tracks) {
+    if (track.type !== 'audio') continue;
+    const shouldPlay = hasSolo ? track.solo : !track.muted;
+    if (!shouldPlay) continue;
+
+    for (const clip of track.clips) {
+      if (!clip.audioFileUrl) continue;
+      try {
+        const buf = new Tone.ToneAudioBuffer();
+        await buf.load(clip.audioFileUrl);
+        audioBuffers.set(clip.id, buf);
+      } catch (err) {
+        console.warn(`Failed to load audio for clip ${clip.id}:`, err);
+      }
+    }
+  }
+
+  const buffer = await Tone.Offline(({ transport }) => {
+    transport.bpm.value = bpm;
+
+    for (const track of tracks) {
+      const shouldPlay = hasSolo ? track.solo : !track.muted;
+      if (!shouldPlay) continue;
+
+      // Create signal chain for this track
+      const destination = Tone.getDestination();
+      const panner = new Tone.Panner(track.pan / 100).connect(destination);
+      const dryGain = new Tone.Gain(1).connect(panner);
+      const gain = new Tone.Gain(track.volume / 100).connect(dryGain);
+
+      // Effects
+      const fx = track.effects;
+      if (fx && fx.reverbMix > 0) {
+        const reverb = new Tone.Reverb({ decay: fx.reverbDecay, wet: 1 }).connect(panner);
+        const reverbSend = new Tone.Gain(fx.reverbMix / 100).connect(reverb);
+        dryGain.connect(reverbSend);
+      }
+      if (fx && fx.delayMix > 0) {
+        const delay = new Tone.FeedbackDelay({
+          delayTime: fx.delayTime,
+          feedback: fx.delayFeedback / 100,
+          wet: 1,
+        }).connect(panner);
+        const delaySend = new Tone.Gain(fx.delayMix / 100).connect(delay);
+        dryGain.connect(delaySend);
+      }
+      if (fx && fx.filterEnabled) {
+        const filter = new Tone.Filter(fx.filterFreq, fx.filterType).connect(dryGain);
+        gain.disconnect(dryGain);
+        gain.connect(filter);
+      }
+
+      // Volume automation — schedule gain changes
+      if (track.volumeAutomation && track.volumeAutomation.length > 0) {
+        const points = track.volumeAutomation;
+        const stepSize = 0.05; // 50ms intervals
+        for (let t = 0; t < duration; t += stepSize) {
+          const beat = (t * bpm) / 60;
+          const autoVal = getAutomationValue(points, beat);
+          const vol = (autoVal / 100) * (track.volume / 100);
+          transport.schedule((time) => {
+            gain.gain.setValueAtTime(vol, time);
+          }, t);
+        }
+      }
+
+      if (track.type === 'audio') {
+        // Schedule audio clips using pre-loaded buffers
+        for (const clip of track.clips) {
+          const audioBuf = audioBuffers.get(clip.id);
+          if (!audioBuf) continue;
+
+          const clipStartTime = (clip.startBeat / bpm) * 60;
+          const audioOffsetSec = ((clip.audioOffset || 0) / bpm) * 60;
+
+          const player = new Tone.Player(audioBuf).connect(gain);
+          transport.schedule((time) => {
+            player.start(time, audioOffsetSec);
+          }, clipStartTime);
+        }
+      } else {
+        // Schedule MIDI notes
+        const synth = createSynth(track.instrument);
+        synth.connect(gain);
+
+        for (const clip of track.clips) {
+          for (const note of clip.notes) {
+            const absoluteBeat = clip.startBeat + note.startBeat;
+            const timeInSeconds = (absoluteBeat / bpm) * 60;
+            const durationInSeconds = (note.duration / bpm) * 60;
+            const noteName = midiToNote(note.pitch);
+            const velocity = velocityToGain(note.velocity);
+
+            transport.schedule((time) => {
+              synth.triggerAttackRelease(noteName, durationInSeconds, time, velocity);
+            }, timeInSeconds);
+          }
+        }
+      }
+    }
+
+    transport.start(0);
+  }, duration);
+
+  return { buffer, projectName };
+}
+
+// Convert AudioBuffer to WAV Blob
+function audioBufferToWav(buffer: AudioBuffer): Blob {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const format = 1; // PCM
+  const bitDepth = 16;
+  const bytesPerSample = bitDepth / 8;
+  const blockAlign = numChannels * bytesPerSample;
+
+  const samples = buffer.length;
+  const dataSize = samples * blockAlign;
+  const headerSize = 44;
+  const arrayBuffer = new ArrayBuffer(headerSize + dataSize);
+  const view = new DataView(arrayBuffer);
+
+  // WAV header
+  const writeString = (offset: number, str: string) => {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  };
+
+  writeString(0, 'RIFF');
+  view.setUint32(4, headerSize + dataSize - 8, true);
+  writeString(8, 'WAVE');
+  writeString(12, 'fmt ');
+  view.setUint32(16, 16, true);              // chunk size
+  view.setUint16(20, format, true);           // PCM
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitDepth, true);
+  writeString(36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  // Interleave channels and write samples
+  const channels: Float32Array[] = [];
+  for (let ch = 0; ch < numChannels; ch++) {
+    channels.push(buffer.getChannelData(ch));
+  }
+
+  let offset = 44;
+  for (let i = 0; i < samples; i++) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      let sample = channels[ch][i];
+      // Clamp
+      sample = Math.max(-1, Math.min(1, sample));
+      // Convert to 16-bit integer
+      const intSample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF;
+      view.setInt16(offset, intSample, true);
+      offset += 2;
+    }
+  }
+
+  return new Blob([arrayBuffer], { type: 'audio/wav' });
+}
+
+// Trigger a file download
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Export as WAV
+export async function exportToWav(): Promise<void> {
+  const { buffer, projectName } = await renderOffline();
+  const wav = audioBufferToWav(buffer);
+  const filename = `${projectName || 'Untitled'}.wav`;
+  downloadBlob(wav, filename);
+}
+
+// Export as MP3 (falls back to WAV if lamejs unavailable)
+export async function exportToMp3(): Promise<void> {
+  // Check if lamejs is available (loaded via CDN)
+  const lamejs = (window as any).lamejs;
+
+  if (!lamejs) {
+    // Fallback: just export WAV with a note
+    console.warn('lamejs not available, exporting as WAV instead');
+    alert('MP3 encoding library not loaded. Exporting as WAV instead.');
+    return exportToWav();
+  }
+
+  const { buffer, projectName } = await renderOffline();
+
+  const sampleRate = buffer.sampleRate;
+  const numChannels = buffer.numberOfChannels;
+  const samples = buffer.length;
+
+  const mp3encoder = new lamejs.Mp3Encoder(numChannels, sampleRate, 192);
+  const mp3Data: Uint8Array[] = [];
+
+  // Convert float samples to int16
+  const leftChannel = buffer.getChannelData(0);
+  const rightChannel = numChannels > 1 ? buffer.getChannelData(1) : leftChannel;
+
+  const left = new Int16Array(samples);
+  const right = new Int16Array(samples);
+  for (let i = 0; i < samples; i++) {
+    left[i] = Math.max(-32768, Math.min(32767, Math.round(leftChannel[i] * 32767)));
+    right[i] = Math.max(-32768, Math.min(32767, Math.round(rightChannel[i] * 32767)));
+  }
+
+  // Encode in chunks
+  const chunkSize = 1152;
+  for (let i = 0; i < samples; i += chunkSize) {
+    const leftChunk = left.subarray(i, i + chunkSize);
+    const rightChunk = right.subarray(i, i + chunkSize);
+    const mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
+    if (mp3buf.length > 0) mp3Data.push(mp3buf);
+  }
+
+  const end = mp3encoder.flush();
+  if (end.length > 0) mp3Data.push(end);
+
+  const blob = new Blob(mp3Data, { type: 'audio/mp3' });
+  downloadBlob(blob, `${projectName || 'Untitled'}.mp3`);
+}

@@ -246,9 +246,18 @@ const useDawStore = create<DawStore>((set, get) => ({
       effects: { ...DEFAULT_EFFECTS }, volumeAutomation: [],
     }],
   })),
-  deleteTrack: (trackId) => withUndo(set, 'Delete Track', (s) => ({
-    tracks: s.tracks.filter((t) => t.id !== trackId),
-  })),
+  deleteTrack: (trackId) => withUndo(set, 'Delete Track', (s) => {
+    const trackToDelete = s.tracks.find((t) => t.id === trackId);
+    const clipIds = trackToDelete ? trackToDelete.clips.map((c) => c.id) : [];
+    return {
+      tracks: s.tracks.filter((t) => t.id !== trackId),
+      // Clear selection if it was on this track
+      selectedClipId: clipIds.includes(s.selectedClipId as number) ? null : s.selectedClipId,
+      // Close piano roll if it was on this track
+      pianoRollClipId: s.pianoRollTrackId === trackId ? null : s.pianoRollClipId,
+      pianoRollTrackId: s.pianoRollTrackId === trackId ? null : s.pianoRollTrackId,
+    };
+  }),
   renameTrack: (trackId, name) => withUndo(set, 'Rename Track', (s) => ({
     tracks: s.tracks.map((t) => t.id === trackId ? { ...t, name } : t),
   })),
@@ -308,7 +317,7 @@ const useDawStore = create<DawStore>((set, get) => ({
 
   // Clips
   selectedClipId: null,
-  selectClip: (clipId) => set({ selectedClipId: clipId }),
+  selectClip: (clipId) => set({ selectedClipId: clipId, selectedNoteIds: new Set() }),
   addClip: (trackId, startBeat) => withUndo(set, 'Add Clip', (s) => {
     // Prevent adding MIDI clips to audio tracks
     const track = s.tracks.find((t) => t.id === trackId);
@@ -410,6 +419,8 @@ const useDawStore = create<DawStore>((set, get) => ({
   }),
   deleteClip: (clipId) => withUndo(set, 'Delete Clip', (s) => ({
     selectedClipId: s.selectedClipId === clipId ? null : s.selectedClipId,
+    pianoRollClipId: s.pianoRollClipId === clipId ? null : s.pianoRollClipId,
+    pianoRollTrackId: s.pianoRollClipId === clipId ? null : s.pianoRollTrackId,
     tracks: s.tracks.map((t) => ({ ...t, clips: t.clips.filter((c) => c.id !== clipId) })),
   })),
   snapToBeat: (beat: number) => Math.round(beat),

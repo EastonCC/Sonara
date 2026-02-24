@@ -65,8 +65,8 @@ const Keyboard: React.FC<KeyboardProps> = ({ clipId, trackId }) => {
 
   // Track active note start times for recording
   const noteStartTimes = useRef<Map<number, number>>(new Map());
-  // Track which computer keys are held (to prevent repeat events)
-  const heldKeys = useRef<Set<string>>(new Set());
+  // Track which computer keys are held and what pitch they triggered
+  const heldKeys = useRef<Map<string, number>>(new Map());
 
   if (!track || !clip) return null;
 
@@ -200,9 +200,9 @@ const Keyboard: React.FC<KeyboardProps> = ({ clipId, trackId }) => {
 
       const key = e.key.toLowerCase();
 
-      // Octave controls
-      if (key === 'z') { setOctave((o) => Math.max(1, o - 1)); return; }
-      if (key === 'x') { setOctave((o) => Math.min(7, o + 1)); return; }
+      // Octave controls (z/x or -/=)
+      if (key === 'z' || (key === '-' && !e.ctrlKey && !e.metaKey)) { setOctave((o) => Math.max(1, o - 1)); return; }
+      if (key === 'x' || (key === '=' && !e.ctrlKey && !e.metaKey)) { setOctave((o) => Math.min(7, o + 1)); return; }
 
       // Note mapping
       const offset = LOWER_ROW_MAP[key];
@@ -210,7 +210,7 @@ const Keyboard: React.FC<KeyboardProps> = ({ clipId, trackId }) => {
         e.preventDefault();
         const pitch = (octave + 1) * 12 + offset; // +1 because MIDI octave starts at -1
         if (pitch >= 21 && pitch <= 108 && !heldKeys.current.has(key)) {
-          heldKeys.current.add(key);
+          heldKeys.current.set(key, pitch);
           handleNoteOn(pitch);
         }
       }
@@ -221,13 +221,10 @@ const Keyboard: React.FC<KeyboardProps> = ({ clipId, trackId }) => {
       if (e.key === 'Shift') { setSustain(false); return; }
 
       const key = e.key.toLowerCase();
-      const offset = LOWER_ROW_MAP[key];
-      if (offset !== undefined) {
-        const pitch = (octave + 1) * 12 + offset;
-        if (heldKeys.current.has(key)) {
-          heldKeys.current.delete(key);
-          handleNoteOff(pitch);
-        }
+      const heldPitch = heldKeys.current.get(key);
+      if (heldPitch !== undefined) {
+        heldKeys.current.delete(key);
+        handleNoteOff(heldPitch);
       }
     };
 

@@ -335,20 +335,25 @@ const PianoRoll: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNoteIds.size > 0) {
-        const target = e.target as HTMLElement;
-        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+
+      const state = useDawStore.getState();
+      const currentTrack = state.tracks.find((t) => t.id === state.pianoRollTrackId);
+      const currentClip = currentTrack?.clips.find((c) => c.id === state.pianoRollClipId);
+
+      if ((e.key === 'Delete' || e.key === 'Backspace') && state.selectedNoteIds.size > 0) {
         e.preventDefault();
-        if (clip) deleteSelectedNotes(clip.id);
+        if (currentClip) state.deleteSelectedNotes(currentClip.id);
       }
       if (e.key === 'Escape') {
-        closePianoRoll();
+        state.closePianoRoll();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedNoteIds, clip?.id, deleteSelectedNotes, closePianoRoll]);
+  }, []);
 
   // Scroll to middle C on mount
   useEffect(() => {
