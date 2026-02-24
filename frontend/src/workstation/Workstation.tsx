@@ -84,7 +84,8 @@ const DAW = () => {
           {/* ═══ Header row ═══ */}
           <div style={styles.headerRow}>
             <div style={styles.trackListHeader}>
-              <button onClick={addTrack} style={styles.addTrackButton}>+ Add Track</button>
+              <button onClick={() => addTrack('instrument')} style={styles.addTrackButton}>+ Instrument</button>
+              <button onClick={() => addTrack('audio')} style={styles.addTrackButton}>+ Audio</button>
             </div>
             <div style={styles.timelineHeaderCell}>
               <Timeline mode="header" />

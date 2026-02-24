@@ -105,7 +105,7 @@ export const initAudio = async () => {
 };
 
 // Play: schedule notes and start transport
-export const play = () => {
+export const play = async () => {
   const { tracks, bpm, currentTime } = useDawStore.getState();
 
   if (!audioEngine.isReady()) {
@@ -113,7 +113,7 @@ export const play = () => {
     return;
   }
 
-  audioEngine.play(tracks, bpm, currentTime);
+  await audioEngine.play(tracks, bpm, currentTime);
 
   // Apply automation immediately so gain is correct from the first note
   const currentBeat = (currentTime * bpm) / 60;
@@ -123,9 +123,9 @@ export const play = () => {
   startTrackSubscription();
 };
 
-// Pause: keep position
+// Pause: keep position but fully stop engine
 export const pause = () => {
-  audioEngine.pause();
+  audioEngine.stop();
   stopPlayheadSync();
   stopTrackSubscription();
 };

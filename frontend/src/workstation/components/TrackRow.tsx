@@ -31,6 +31,43 @@ const TrackRow: React.FC<TrackRowProps> = ({ trackId, automationOpen, onToggleAu
   const setTrackColor = useDawStore((s) => s.setTrackColor);
   const setTrackInstrument = useDawStore((s) => s.setTrackInstrument);
 
+  const addAudioClip = useDawStore((s) => s.addAudioClip);
+  const bpm = useDawStore((s) => s.bpm);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAudioImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+
+    // Decode audio to get duration and waveform
+    const arrayBuffer = await file.arrayBuffer();
+    const audioCtx = new AudioContext();
+    const decoded = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+    audioCtx.close();
+
+    const durationSec = decoded.duration;
+    const durationBeats = (durationSec * bpm) / 60;
+
+    // Generate waveform peaks
+    const channelData = decoded.getChannelData(0);
+    const numPeaks = 200;
+    const samplesPerPeak = Math.floor(channelData.length / numPeaks);
+    const peaks: number[] = [];
+    for (let i = 0; i < numPeaks; i++) {
+      let max = 0;
+      for (let j = 0; j < samplesPerPeak; j++) {
+        const abs = Math.abs(channelData[i * samplesPerPeak + j] || 0);
+        if (abs > max) max = abs;
+      }
+      peaks.push(max);
+    }
+
+    addAudioClip(trackId, 0, file.name.replace(/\.[^.]+$/, ''), durationBeats, url, peaks);
+    e.target.value = '';
+  };
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   const [isRenaming, setIsRenaming] = useState(false);
@@ -222,6 +259,23 @@ const TrackRow: React.FC<TrackRowProps> = ({ trackId, automationOpen, onToggleAu
             </select>
           </div>
         )}
+        {track.type === 'audio' && (
+          <div style={styles.instrumentRow}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="audio/*"
+              onChange={handleAudioImport}
+              style={{ display: 'none' }}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              style={styles.importButton}
+            >
+              📁 Import
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -336,6 +390,11 @@ const styles: { [key: string]: React.CSSProperties } = {
   instrumentSelect: {
     background: '#1a1a2e', border: '1px solid #3a3a5e', color: '#ffffff',
     padding: '2px 6px', borderRadius: '4px', fontSize: '11px',
+    fontFamily: "'Poppins', sans-serif", cursor: 'pointer',
+  },
+  importButton: {
+    background: '#1a1a2e', border: '1px solid #3a3a5e', color: '#00d4ff',
+    padding: '2px 8px', borderRadius: '4px', fontSize: '11px',
     fontFamily: "'Poppins', sans-serif", cursor: 'pointer',
   },
 };

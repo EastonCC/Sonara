@@ -115,7 +115,7 @@ interface DawStore {
   setLoopRegion: (start: number, end: number) => void;
 
   tracks: Track[];
-  addTrack: () => void;
+  addTrack: (type?: 'audio' | 'instrument') => void;
   deleteTrack: (trackId: number) => void;
   renameTrack: (trackId: number, name: string) => void;
   duplicateTrack: (trackId: number) => void;
@@ -132,6 +132,7 @@ interface DawStore {
   selectedClipId: number | null;
   selectClip: (clipId: number | null) => void;
   addClip: (trackId: number, startBeat: number) => void;
+  addAudioClip: (trackId: number, startBeat: number, name: string, durationBeats: number, audioFileUrl: string, waveformPeaks: number[]) => void;
   moveClip: (clipId: number, newStartBeat: number, newTrackId?: number) => void;
   resizeClip: (clipId: number, newDuration: number, fromLeft?: boolean) => void;
   deleteClip: (clipId: number) => void;
@@ -226,10 +227,11 @@ const useDawStore = create<DawStore>((set, get) => ({
 
   // Tracks
   tracks: DEFAULT_TRACKS,
-  addTrack: () => withUndo(set, 'Add Track', (s) => ({
+  addTrack: (type = 'instrument' as 'audio' | 'instrument') => withUndo(set, 'Add Track', (s) => ({
     tracks: [...s.tracks, {
-      id: Date.now(), name: `Track ${s.tracks.length + 1}`,
-      type: 'instrument' as const, instrument: 'triangle' as const,
+      id: Date.now(), name: type === 'audio' ? `Audio ${s.tracks.filter(t => t.type === 'audio').length + 1}` : `Track ${s.tracks.length + 1}`,
+      type: type as 'audio' | 'instrument',
+      instrument: 'triangle' as const,
       color: TRACK_COLORS[s.tracks.length % TRACK_COLORS.length],
       muted: false, solo: false, volume: 75, pan: 0, clips: [],
       effects: { ...DEFAULT_EFFECTS }, volumeAutomation: [],
@@ -299,23 +301,54 @@ const useDawStore = create<DawStore>((set, get) => ({
   selectedClipId: null,
   selectClip: (clipId) => set({ selectedClipId: clipId }),
   addClip: (trackId, startBeat) => withUndo(set, 'Add Clip', (s) => {
+    // Prevent adding MIDI clips to audio tracks
+    const track = s.tracks.find((t) => t.id === trackId);
+    if (track?.type === 'audio') return {};
     const snap = s.snapEnabled ? s.snapToBeat(startBeat) : startBeat;
     const newClipId = Date.now() + Math.floor(Math.random() * 1000);
     return {
       tracks: s.tracks.map((t) => t.id === trackId ? {
-        ...t, clips: [...t.clips, {
+        ...t,
+        clips: [...t.clips, {
           id: newClipId, name: t.type === 'drums' ? 'Beat' : 'New Clip',
           startBeat: Math.max(0, snap), duration: 4, notes: [],
         }],
-    effects: { ...DEFAULT_EFFECTS }, volumeAutomation: [],
       } : t),
       selectedClipId: newClipId,
     };
   }),
+  addAudioClip: (trackId, startBeat, name, durationBeats, audioFileUrl, waveformPeaks) =>
+    withUndo(set, 'Add Audio Clip', (s) => {
+      const track = s.tracks.find((t) => t.id === trackId);
+      if (track?.type !== 'audio') return {};
+      const newClipId = Date.now() + Math.floor(Math.random() * 1000);
+      return {
+        tracks: s.tracks.map((t) => t.id === trackId ? {
+          ...t,
+          clips: [...t.clips, {
+            id: newClipId, name,
+            startBeat: Math.max(0, startBeat), duration: durationBeats,
+            notes: [], audioFileUrl, waveformPeaks,
+            audioOffset: 0, audioDurationBeats: durationBeats,
+          }],
+        } : t),
+        selectedClipId: newClipId,
+      };
+    }),
   moveClip: (clipId, newStartBeat, newTrackId) => set((s) => {
     const snap = s.snapEnabled ? s.snapToBeat(newStartBeat) : newStartBeat;
     const clampedBeat = Math.max(0, snap);
     if (newTrackId !== undefined) {
+      // Find source and target tracks
+      const sourceTrack = s.tracks.find((t) => t.clips.some((c) => c.id === clipId));
+      const targetTrack = s.tracks.find((t) => t.id === newTrackId);
+      // Prevent moving between audio and instrument tracks
+      if (sourceTrack && targetTrack) {
+        const sourceIsAudio = sourceTrack.type === 'audio';
+        const targetIsAudio = targetTrack.type === 'audio';
+        if (sourceIsAudio !== targetIsAudio) return {}; // block cross-type move
+      }
+
       let movedClip: typeof s.tracks[0]['clips'][0] | null = null;
       const tracksWithoutClip = s.tracks.map((t) => {
         const clip = t.clips.find((c) => c.id === clipId);
@@ -347,7 +380,19 @@ const useDawStore = create<DawStore>((set, get) => ({
           if (c.id !== clipId) return c;
           if (fromLeft) {
             const delta = c.duration - clampedDuration;
-            return { ...c, startBeat: Math.max(0, c.startBeat + delta), duration: clampedDuration };
+            const newStart = Math.max(0, c.startBeat + delta);
+            const actualDelta = newStart - c.startBeat;
+            // For audio clips, track how much of the start is trimmed
+            if (c.audioFileUrl && c.audioOffset !== undefined) {
+              const newOffset = Math.max(0, (c.audioOffset || 0) + actualDelta);
+              return { ...c, startBeat: newStart, duration: clampedDuration, audioOffset: newOffset };
+            }
+            return { ...c, startBeat: newStart, duration: clampedDuration };
+          }
+          // Resize from right — for audio clips, don't exceed original audio length
+          if (c.audioFileUrl && c.audioDurationBeats) {
+            const maxDuration = c.audioDurationBeats - (c.audioOffset || 0);
+            return { ...c, duration: Math.min(clampedDuration, maxDuration) };
           }
           return { ...c, duration: clampedDuration };
         }),

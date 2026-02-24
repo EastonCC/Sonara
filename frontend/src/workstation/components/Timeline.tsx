@@ -8,6 +8,65 @@ const TOTAL_BARS = 32;
 const RESIZE_HANDLE_WIDTH = 8;
 const AUTOMATION_LANE_HEIGHT = 60;
 
+// Lightweight waveform renderer for audio clips
+const WaveformPreview: React.FC<{
+  peaks: number[];
+  color: string;
+  widthPx: number;
+  audioOffset?: number;       // beats trimmed from start
+  audioDurationBeats?: number; // total original duration in beats
+  clipDurationBeats: number;  // current visible duration
+}> = ({ peaks, color, widthPx, audioOffset = 0, audioDurationBeats, clipDurationBeats }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || widthPx <= 0) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const w = widthPx - 8;
+    const h = 50;
+    canvas.width = Math.max(1, Math.floor(w * 2));
+    canvas.height = h * 2;
+    ctx.scale(2, 2);
+    ctx.clearRect(0, 0, w, h);
+
+    // Calculate which portion of peaks to show
+    const totalBeats = audioDurationBeats || clipDurationBeats;
+    const startFraction = audioOffset / totalBeats;
+    const endFraction = (audioOffset + clipDurationBeats) / totalBeats;
+    const startIdx = Math.floor(startFraction * peaks.length);
+    const endIdx = Math.min(peaks.length, Math.ceil(endFraction * peaks.length));
+    const visiblePeaks = peaks.slice(startIdx, endIdx);
+
+    if (visiblePeaks.length === 0) return;
+
+    const barWidth = w / visiblePeaks.length;
+    const mid = h / 2;
+
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    visiblePeaks.forEach((peak, i) => {
+      const barH = Math.max(1, peak * mid * 0.9);
+      ctx.fillRect(i * barWidth, mid - barH, Math.max(1, barWidth - 0.5), barH * 2);
+    });
+  }, [peaks, color, widthPx, audioOffset, audioDurationBeats, clipDurationBeats]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'absolute',
+        top: '18px',
+        left: '4px',
+        width: `${Math.max(1, widthPx - 8)}px`,
+        height: 'calc(100% - 22px)',
+        pointerEvents: 'none',
+      }}
+    />
+  );
+};
+
 type DragMode = 'move' | 'resize-left' | 'resize-right' | null;
 
 interface DragState {
@@ -188,6 +247,7 @@ const Timeline: React.FC<TimelineProps> = ({ mode, trackId, showAutomation }) =>
   };
 
   const handleLaneDoubleClick = (e: React.MouseEvent) => {
+    if (track.type === 'audio') return; // audio clips added via import
     if (e.target === e.currentTarget) {
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -211,7 +271,7 @@ const Timeline: React.FC<TimelineProps> = ({ mode, trackId, showAutomation }) =>
 
       {/* Clips area — 80px */}
       <div
-        style={{ position: 'relative', height: '80px' }}
+        style={{ position: 'relative', height: '80px', overflow: 'hidden' }}
         onClick={handleLaneClick}
         onDoubleClick={handleLaneDoubleClick}
       >
@@ -241,22 +301,20 @@ const Timeline: React.FC<TimelineProps> = ({ mode, trackId, showAutomation }) =>
               backgroundColor: track.color,
               left: `${clip.startBeat * pixelsPerBeat}px`,
               width: `${clip.duration * pixelsPerBeat}px`,
-              outline: isSelected ? '2px solid #ffffff' : 'none',
-              outlineOffset: isSelected ? '-1px' : '0',
               boxShadow: isSelected
-                ? '0 0 12px rgba(255,255,255,0.3)'
+                ? 'inset 0 0 0 2px #ffffff'
                 : isDragging
                 ? '0 4px 16px rgba(0,0,0,0.4)'
                 : 'none',
               opacity: isDragging ? 0.85 : 1,
-              zIndex: isDragging ? 50 : isSelected ? 10 : 1,
+              zIndex: isDragging ? 50 : isSelected ? 5 : 1,
               cursor: isDragging ? 'grabbing' : 'grab',
             }}
           >
             <div style={styles.resizeHandleLeft} />
             <span style={styles.clipName}>{clip.name}</span>
 
-            {/* Mini note preview */}
+            {/* Mini note preview (MIDI clips) */}
             {clip.notes.length > 0 && (() => {
               const pitches = clip.notes.map((n) => n.pitch);
               const minPitch = Math.min(...pitches) - 1;
@@ -284,7 +342,19 @@ const Timeline: React.FC<TimelineProps> = ({ mode, trackId, showAutomation }) =>
               );
             })()}
 
-            {clip.notes.length === 0 && (
+            {/* Waveform preview (audio clips) */}
+            {clip.waveformPeaks && clip.waveformPeaks.length > 0 && (
+              <WaveformPreview
+                peaks={clip.waveformPeaks}
+                color={track.color}
+                widthPx={clip.duration * pixelsPerBeat}
+                audioOffset={clip.audioOffset || 0}
+                audioDurationBeats={clip.audioDurationBeats}
+                clipDurationBeats={clip.duration}
+              />
+            )}
+
+            {clip.notes.length === 0 && !clip.waveformPeaks && (
               <div style={styles.emptyClipLabel}>
                 {track.type === 'audio' ? '♪ Audio' : 'Empty'}
               </div>

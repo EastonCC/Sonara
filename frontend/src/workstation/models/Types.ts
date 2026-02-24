@@ -15,6 +15,10 @@ export interface Clip {
   notes: MidiNote[];
   // For audio tracks
   audioFileUrl?: string;
+  audioBuffer?: ArrayBuffer;
+  waveformPeaks?: number[];    // normalized 0-1 peaks for drawing
+  audioOffset?: number;         // beats trimmed from start of audio file
+  audioDurationBeats?: number;  // total duration of the original audio in beats
 }
 
 export type InstrumentPreset = 'triangle' | 'sawtooth' | 'square' | 'sine' | 'fm' | 'am' | 'fat' | 'membrane' | 'metal' | 'pluck';

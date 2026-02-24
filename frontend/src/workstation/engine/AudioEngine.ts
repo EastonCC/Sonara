@@ -26,6 +26,8 @@ interface TrackNodes {
   filter: Tone.Filter | null;
   // Post-effects dry path
   dryGain: Tone.Gain;
+  // Audio playback
+  players: Map<number, Tone.Player>; // clipId → Player
   scheduledEvents: number[];
   automationEvents: number[];
 }
@@ -34,6 +36,7 @@ class AudioEngine {
   private trackNodes: Map<number, TrackNodes> = new Map();
   private isInitialized = false;
   private scheduledEvents: number[] = [];
+  private _pendingAudioStarts: { player: Tone.Player; offset: number }[] = [];
 
   // Preview synth for real-time note audition (piano roll dragging)
   private previewSynth: Tone.PolySynth | null = null;
@@ -127,6 +130,7 @@ class AudioEngine {
         reverb: null, reverbSend: null,
         delay: null, delaySend: null,
         filter: null,
+        players: new Map(),
         scheduledEvents: [], automationEvents: [],
       };
       this.trackNodes.set(track.id, nodes);
@@ -280,6 +284,52 @@ class AudioEngine {
         });
       });
     });
+
+    // ─── Schedule audio clips ───
+    tracks.forEach((track) => {
+      if (track.type !== 'audio') return;
+      const shouldPlay = hasSolo ? track.solo : !track.muted;
+      if (!shouldPlay) return;
+
+      const nodes = this.ensureTrackNodes(track);
+
+      track.clips.forEach((clip) => {
+        if (!clip.audioFileUrl) return;
+
+        const clipStartTime = (clip.startBeat / bpm) * 60;
+        const clipEndTime = ((clip.startBeat + clip.duration) / bpm) * 60;
+        const audioOffsetSec = ((clip.audioOffset || 0) / bpm) * 60;
+
+        if (clipEndTime <= startTime) return; // clip already finished
+
+        // Get or create player for this clip
+        let player = nodes.players.get(clip.id);
+        if (!player) {
+          player = new Tone.Player(clip.audioFileUrl).connect(nodes.gain);
+          nodes.players.set(clip.id, player);
+        }
+
+        if (clipStartTime <= startTime) {
+          // Clip is mid-play or starts at exactly the current time
+          // Start immediately when transport starts (don't schedule, avoids race condition)
+          const playOffset = audioOffsetSec + (startTime - clipStartTime);
+          this._pendingAudioStarts.push({ player: player!, offset: playOffset });
+        } else {
+          const eventId = Tone.getTransport().schedule((time) => {
+            if (player!.loaded) player!.start(time, audioOffsetSec);
+          }, clipStartTime);
+          nodes.scheduledEvents.push(eventId);
+          this.scheduledEvents.push(eventId);
+        }
+
+        // Schedule stop at clip end
+        const stopId = Tone.getTransport().schedule((time) => {
+          if (player!.state === 'started') player!.stop(time);
+        }, clipEndTime);
+        nodes.scheduledEvents.push(stopId);
+        this.scheduledEvents.push(stopId);
+      });
+    });
   }
 
   // Clear all scheduled events
@@ -288,9 +338,14 @@ class AudioEngine {
       Tone.getTransport().clear(id);
     });
     this.scheduledEvents = [];
+    this._pendingAudioStarts = [];
     this.trackNodes.forEach((nodes) => {
       nodes.scheduledEvents = [];
       nodes.automationEvents = [];
+      // Stop any playing audio clips
+      nodes.players.forEach((player) => {
+        if (player.state === 'started') player.stop();
+      });
     });
   }
 
@@ -302,8 +357,27 @@ class AudioEngine {
   }
 
   // Start playback
-  play(tracks: Track[], bpm: number, fromTime: number = 0): void {
+  async play(tracks: Track[], bpm: number, fromTime: number = 0): Promise<void> {
     this.schedulePlayback(tracks, bpm, fromTime);
+
+    // Wait for all audio players to be loaded
+    const loadPromises: Promise<void>[] = [];
+    this.trackNodes.forEach((nodes) => {
+      nodes.players.forEach((player) => {
+        if (!player.loaded) {
+          loadPromises.push(new Promise<void>((resolve) => {
+            const check = () => {
+              if (player.loaded) resolve();
+              else setTimeout(check, 10);
+            };
+            check();
+          }));
+        }
+      });
+    });
+    if (loadPromises.length > 0) {
+      await Promise.all(loadPromises);
+    }
 
     // Apply volume automation immediately before starting transport
     const currentBeat = (fromTime * bpm) / 60;
@@ -333,11 +407,23 @@ class AudioEngine {
 
     Tone.getTransport().seconds = fromTime;
     Tone.getTransport().start();
+
+    // Start any audio clips that should already be playing
+    this._pendingAudioStarts.forEach(({ player, offset }) => {
+      if (player.loaded) player.start(Tone.now(), offset);
+    });
+    this._pendingAudioStarts = [];
   }
 
   // Pause playback
   pause(): void {
     Tone.getTransport().pause();
+    // Stop audio players immediately (synths handle pause via transport)
+    this.trackNodes.forEach((nodes) => {
+      nodes.players.forEach((player) => {
+        if (player.state === 'started') player.stop();
+      });
+    });
   }
 
   // Stop and reset
