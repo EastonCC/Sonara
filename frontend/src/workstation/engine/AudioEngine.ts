@@ -82,6 +82,58 @@ class AudioEngine {
   }
 
   // Create a synth or sampler based on preset ID
+  // Per-preset volume normalization (dB). Tune these to equalize loudness.
+  // Negative = quieter, positive = louder, 0 = no change.
+  private static PRESET_GAIN_DB: Record<string, number> = {
+    // Sampled instruments (tend to be recorded hot)
+    'salamander-piano': -6,
+    'organ': -4,
+    'harmonium': -3,
+    'violin': -2,
+    'cello': -2,
+    'contrabass': -3,
+    'harp': -4,
+    'trumpet': -5,
+    'trombone': -5,
+    'french-horn': -5,
+    'tuba': -6,
+    'flute': -2,
+    'clarinet': -2,
+    'bassoon': -3,
+    'saxophone': -4,
+    'guitar-acoustic': -3,
+    'guitar-electric': -4,
+    'guitar-nylon': -3,
+    'bass-electric': -4,
+    'xylophone': -3,
+    // Synth presets (generally more controlled)
+    'saw-lead': -8,
+    'square-lead': -7,
+    'fm-lead': 0,
+    'fat-lead': -10,
+    'pwm-lead': -7,
+    'warm-pad': -5,
+    'string-pad': -5,
+    'glass-pad': -3,
+    'am-pad': -4,
+    'sub-bass': -6,
+    'saw-bass': -8,
+    'fm-bass': -4,
+    'reese-bass': -9,
+    'pluck': -2,
+    'fm-pluck': -1,
+    'kalimba': -1,
+    'membrane': -4,
+    'metal': -8,
+  };
+
+  private applyPresetGain(synth: Tone.PolySynth | Tone.Sampler, presetId: string): void {
+    const gainDb = AudioEngine.PRESET_GAIN_DB[presetId];
+    if (gainDb !== undefined && gainDb !== 0) {
+      synth.volume.value = gainDb;
+    }
+  }
+
   private createSynth(presetId: InstrumentPreset, _trackType: string): Tone.PolySynth | Tone.Sampler {
     const preset = getPreset(presetId);
 
@@ -109,6 +161,7 @@ class AudioEngine {
           }
           this.notifySamplerLoad();
         }, 0);
+        this.applyPresetGain(sampler, presetId);
         return sampler;
       }
 
@@ -168,6 +221,7 @@ class AudioEngine {
         );
       }
 
+      this.applyPresetGain(sampler, presetId);
       return sampler;
     }
 
@@ -181,14 +235,18 @@ class AudioEngine {
         'MetalSynth': Tone.MetalSynth,
       };
       const SynthClass = synthMap[cfg.synthType] || Tone.Synth;
-      return new Tone.PolySynth(SynthClass, cfg.options);
+      const poly = new Tone.PolySynth(SynthClass, cfg.options);
+      this.applyPresetGain(poly, presetId);
+      return poly;
     }
 
     // Fallback: basic triangle
-    return new Tone.PolySynth(Tone.Synth, {
+    const fallback = new Tone.PolySynth(Tone.Synth, {
       oscillator: { type: 'triangle' },
       envelope: { attack: 0.02, decay: 0.1, sustain: 0.3, release: 0.4 },
     });
+    this.applyPresetGain(fallback, presetId);
+    return fallback;
   }
 
   // Create or update the audio nodes for a track

@@ -1,5 +1,6 @@
 import * as Tone from 'tone';
 import { Track, InstrumentPreset } from '../models/types';
+import { getPreset } from '../models/presets';
 import useDawStore from '../state/dawStore';
 
 // Convert MIDI note number to note name
@@ -11,58 +12,52 @@ const midiToNote = (midi: number): string => {
 
 const velocityToGain = (velocity: number): number => velocity / 127;
 
-// Create a synth for offline rendering (same presets as AudioEngine)
-function createSynth(preset: InstrumentPreset): Tone.PolySynth {
-  switch (preset) {
-    case 'sawtooth':
-      return new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: 'sawtooth' },
-        envelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 0.4 },
-      });
-    case 'square':
-      return new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: 'square' },
-        envelope: { attack: 0.01, decay: 0.15, sustain: 0.3, release: 0.3 },
-      });
-    case 'sine':
-      return new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: 'sine' },
-        envelope: { attack: 0.05, decay: 0.2, sustain: 0.5, release: 0.8 },
-      });
-    case 'fm':
-      return new Tone.PolySynth(Tone.FMSynth, {
-        modulationIndex: 3,
-        envelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.4 },
-      });
-    case 'am':
-      return new Tone.PolySynth(Tone.AMSynth, {
-        envelope: { attack: 0.02, decay: 0.2, sustain: 0.3, release: 0.4 },
-      });
-    case 'membrane':
-      return new Tone.PolySynth(Tone.MembraneSynth, {
-        envelope: { attack: 0.001, decay: 0.3, sustain: 0, release: 0.1 },
-      });
-    case 'metal':
-      return new Tone.PolySynth(Tone.MetalSynth as any, {
-        envelope: { attack: 0.001, decay: 0.4, release: 0.2 },
-      });
-    case 'pluck':
-      return new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: 'triangle' },
-        envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 0.1 },
-      });
-    case 'fat':
-      return new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: 'fatsawtooth', spread: 20, count: 3 } as any,
-        envelope: { attack: 0.03, decay: 0.2, sustain: 0.4, release: 0.5 },
-      });
-    case 'triangle':
-    default:
-      return new Tone.PolySynth(Tone.Synth, {
-        oscillator: { type: 'triangle' },
-        envelope: { attack: 0.02, decay: 0.1, sustain: 0.3, release: 0.4 },
-      });
+// Create a synth for offline rendering
+// Note: Samplers don't work in Tone.Offline, so we fall back to a basic synth
+// Per-preset volume normalization (dB) — mirrors AudioEngine values
+const PRESET_GAIN_DB: Record<string, number> = {
+  'salamander-piano': -6, 'organ': -4, 'harmonium': -3,
+  'violin': -2, 'cello': -2, 'contrabass': -3, 'harp': -4,
+  'trumpet': -5, 'trombone': -5, 'french-horn': -5, 'tuba': -6,
+  'flute': -2, 'clarinet': -2, 'bassoon': -3, 'saxophone': -4,
+  'guitar-acoustic': -3, 'guitar-electric': -4, 'guitar-nylon': -3,
+  'bass-electric': -4, 'xylophone': -3,
+  'saw-lead': -8, 'square-lead': -7, 'fm-lead': 0, 'fat-lead': -10, 'pwm-lead': -7,
+  'warm-pad': -5, 'string-pad': -5, 'glass-pad': -3, 'am-pad': -4,
+  'sub-bass': -6, 'saw-bass': -8, 'fm-bass': -4, 'reese-bass': -9,
+  'pluck': -2, 'fm-pluck': -1, 'kalimba': -1, 'membrane': -4, 'metal': -8,
+};
+
+function createSynth(presetId: InstrumentPreset): Tone.PolySynth {
+  const preset = getPreset(presetId);
+
+  let synth: Tone.PolySynth;
+
+  // Sampler presets can't load in offline context — use a basic synth fallback
+  if (preset && preset.type === 'synth' && preset.synthConfig) {
+    const cfg = preset.synthConfig;
+    const synthMap: Record<string, any> = {
+      'Synth': Tone.Synth,
+      'FMSynth': Tone.FMSynth,
+      'AMSynth': Tone.AMSynth,
+      'MembraneSynth': Tone.MembraneSynth,
+      'MetalSynth': Tone.MetalSynth,
+    };
+    const SynthClass = synthMap[cfg.synthType] || Tone.Synth;
+    synth = new Tone.PolySynth(SynthClass, cfg.options);
+  } else {
+    // Fallback for sampler presets or unknown
+    synth = new Tone.PolySynth(Tone.Synth, {
+      oscillator: { type: 'triangle' },
+      envelope: { attack: 0.02, decay: 0.1, sustain: 0.3, release: 0.4 },
+    });
   }
+
+  const gainDb = PRESET_GAIN_DB[presetId as string];
+  if (gainDb !== undefined && gainDb !== 0) {
+    synth.volume.value = gainDb;
+  }
+  return synth;
 }
 
 // Calculate the end time of the project in seconds

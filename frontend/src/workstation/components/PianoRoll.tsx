@@ -4,6 +4,7 @@ import { MidiNote } from '../models/types';
 import { previewNoteOn, previewNoteChange, previewNoteOff } from '../engine/TransportSync';
 import Keyboard from './Keyboard';
 import EffectsPanel from './EffectsPanel';
+import * as Icons from './Icons';
 
 const NOTE_HEIGHT = 14;
 const PIXELS_PER_BEAT = 80;
@@ -24,6 +25,19 @@ const pitchToName = (pitch: number): string => {
 
 const pitchToY = (pitch: number): number => (MAX_PITCH - pitch) * NOTE_HEIGHT;
 const yToPitch = (y: number): number => MAX_PITCH - Math.floor(y / NOTE_HEIGHT);
+
+// Quantize grid options (in beats)
+const GRID_OPTIONS = [
+  { value: 1,     label: '1/4' },
+  { value: 0.5,   label: '1/8' },
+  { value: 0.25,  label: '1/16' },
+  { value: 0.125, label: '1/32' },
+  // Triplets
+  { value: 2/3,    label: '1/4T' },
+  { value: 1/3,    label: '1/8T' },
+  { value: 1/6,    label: '1/16T' },
+];
+const GRID_LABELS: Record<number, string> = Object.fromEntries(GRID_OPTIONS.map(g => [g.value, g.label]));
 
 // ─── Types ───
 
@@ -66,6 +80,7 @@ const PianoRoll: React.FC = () => {
 
   const gridRef = useRef<HTMLDivElement>(null);
   const gridElRef = useRef<HTMLDivElement>(null);
+  const quantizeMenuRef = useRef<HTMLDivElement>(null);
 
   // Use ref for interaction state so global listeners always see latest
   const interaction = useRef<InteractionState | null>(null);
@@ -76,7 +91,22 @@ const PianoRoll: React.FC = () => {
   const [showVelocity, setShowVelocity] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState('');
+  const [quantizeGrid, setQuantizeGrid] = useState(0.25); // 1/16 note
+  const [quantizeStrength, setQuantizeStrength] = useState(1.0);
+  const [showQuantizeMenu, setShowQuantizeMenu] = useState(false);
   const forceRender = () => setRenderTick((t) => t + 1);
+
+  // Close quantize menu on click outside
+  useEffect(() => {
+    if (!showQuantizeMenu) return;
+    const handleClick = (e: MouseEvent) => {
+      if (quantizeMenuRef.current && !quantizeMenuRef.current.contains(e.target as Node)) {
+        setShowQuantizeMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showQuantizeMenu]);
 
   const track = tracks.find((t) => t.id === pianoRollTrackId);
   const clip = track?.clips.find((c) => c.id === pianoRollClipId);
@@ -530,7 +560,7 @@ const PianoRoll: React.FC = () => {
                 ...(viewMode === 'keyboard' ? styles.tabActive : {}),
               }}
             >
-              🎹 Keyboard
+              <Icons.Piano color={viewMode === 'keyboard' ? '#fff' : '#888'} /> Keyboard
             </button>
             <button
               onClick={() => setViewMode('midi')}
@@ -539,7 +569,7 @@ const PianoRoll: React.FC = () => {
                 ...(viewMode === 'midi' ? styles.tabActive : {}),
               }}
             >
-              🎼 MIDI Editor
+              <Icons.MidiGrid color={viewMode === 'midi' ? '#fff' : '#888'} /> MIDI Editor
             </button>
             <button
               onClick={() => setViewMode('effects')}
@@ -548,7 +578,7 @@ const PianoRoll: React.FC = () => {
                 ...(viewMode === 'effects' ? styles.tabActive : {}),
               }}
             >
-              🎛️ Effects
+              <Icons.Knobs color={viewMode === 'effects' ? '#fff' : '#888'} /> Effects
             </button>
           </div>
           <span style={styles.headerInfo}>
@@ -564,11 +594,10 @@ const PianoRoll: React.FC = () => {
             style={{
               ...styles.tab,
               ...(showVelocity ? styles.tabActive : {}),
-              fontSize: '10px',
-              padding: '3px 8px',
+              ...styles.iconBtn,
             }}
           >
-            📊 Vel
+            <Icons.Vel color={showVelocity ? '#fff' : '#999'} /> Vel
           </button>
           {/* Velocity edit mode toggle */}
           <button
@@ -581,11 +610,10 @@ const PianoRoll: React.FC = () => {
                 color: '#ff6b35',
                 border: '1px solid #ff6b3560',
               } : {}),
-              fontSize: '10px',
-              padding: '3px 8px',
+              ...styles.iconBtn,
             }}
           >
-            ✏️ Vel Edit
+            <Icons.VelEdit color={velocityMode ? '#ff6b35' : '#999'} /> Vel Edit
           </button>
           {/* Humanize */}
           <button
@@ -600,12 +628,97 @@ const PianoRoll: React.FC = () => {
             title="Humanize — add subtle random timing and velocity variation"
             style={{
               ...styles.tab,
-              fontSize: '10px',
-              padding: '3px 8px',
+              ...styles.iconBtn,
             }}
           >
-            🎲 Humanize
+            <Icons.Humanize color="#999" /> Humanize
           </button>
+          {/* Quantize */}
+          <div ref={quantizeMenuRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowQuantizeMenu(!showQuantizeMenu)}
+              title="Quantize notes to grid"
+              style={{
+                ...styles.tab,
+                ...(showQuantizeMenu ? styles.tabActive : {}),
+                ...styles.iconBtn,
+              }}
+            >
+              <Icons.Quantize color={showQuantizeMenu ? '#fff' : '#999'} /> Quantize
+            </button>
+            {showQuantizeMenu && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: '4px',
+                  background: '#252542',
+                  border: '1px solid #3a3a5e',
+                  borderRadius: '6px',
+                  padding: '10px 14px',
+                  zIndex: 200,
+                  minWidth: '200px',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                  fontFamily: "'Poppins', sans-serif",
+                }}
+              >
+                <div style={{ fontSize: '10px', color: '#888', marginBottom: '6px', fontWeight: 600 }}>Grid Size</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginBottom: '10px' }}>
+                  {GRID_OPTIONS.map(({ value, label }) => (
+                    <button
+                      key={value}
+                      onClick={() => setQuantizeGrid(value)}
+                      style={{
+                        ...styles.tab,
+                        fontSize: '10px',
+                        padding: '2px 8px',
+                        ...(quantizeGrid === value ? styles.tabActive : {}),
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontSize: '10px', color: '#888', marginBottom: '4px', fontWeight: 600 }}>
+                  Strength: {Math.round(quantizeStrength * 100)}%
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={Math.round(quantizeStrength * 100)}
+                  onChange={(e) => setQuantizeStrength(parseInt(e.target.value) / 100)}
+                  style={{ width: '100%', accentColor: '#00d4ff', marginBottom: '10px' }}
+                />
+                <button
+                  onClick={() => {
+                    const ids = selectedNoteIds.size > 0
+                      ? Array.from(selectedNoteIds)
+                      : clip.notes.map((n) => n.id);
+                    if (ids.length > 0) {
+                      useDawStore.getState().quantizeNotes(clip.id, ids, quantizeGrid, quantizeStrength);
+                    }
+                    setShowQuantizeMenu(false);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '5px 0',
+                    background: '#00d4ff',
+                    color: '#000',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontFamily: "'Poppins', sans-serif",
+                  }}
+                >
+                  Apply Quantize
+                </button>
+              </div>
+            )}
+          </div>
           <button onClick={closePianoRoll} style={styles.closeButton}>
             ✕
           </button>
@@ -897,10 +1010,20 @@ const styles: { [key: string]: React.CSSProperties } = {
     cursor: 'pointer',
     fontFamily: "'Poppins', sans-serif",
     transition: 'all 0.15s',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '5px',
   },
   tabActive: {
     backgroundColor: '#3a3a5e',
     color: '#ffffff',
+  },
+  iconBtn: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    fontSize: '10px',
+    padding: '3px 8px',
   },
   closeButton: {
     background: 'none',

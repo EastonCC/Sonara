@@ -295,7 +295,7 @@ const Keyboard: React.FC<KeyboardProps> = ({ clipId, trackId }) => {
               <optgroup key={category} label={category}>
                 {presets.map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.type === 'sampler' ? '🎵 ' : '⚡ '}{p.name}
+                    {p.name}
                   </option>
                 ))}
               </optgroup>
@@ -305,7 +305,7 @@ const Keyboard: React.FC<KeyboardProps> = ({ clipId, trackId }) => {
 
         <div style={styles.topBarCenter}>
           {isRecordingActive && (
-            <span style={styles.recordingBadge}>⏺ RECORDING</span>
+            <span style={styles.recordingBadge}>● RECORDING</span>
           )}
         </div>
 

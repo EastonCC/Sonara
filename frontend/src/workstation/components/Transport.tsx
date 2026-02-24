@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import useDawStore from '../state/dawStore';
 import { initAudio, play, pause, stop as engineStop, rewind as engineRewind, updateBpm } from '../engine/TransportSync';
+import * as Icons from './Icons';
 
 const KEYS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const MIN_BPM = 20;
@@ -89,7 +90,7 @@ const Transport: React.FC = () => {
             backgroundColor: loopEnabled ? 'rgba(0,212,255,0.15)' : 'transparent',
           }}
           title="Loop mode"
-        >🔁</button>
+        ><Icons.Loop color={loopEnabled ? "#00d4ff" : "#ffffff"} size={16} /></button>
       </div>
 
       <div style={styles.transportCenter}>
@@ -113,7 +114,7 @@ const Transport: React.FC = () => {
             ...(isRecording ? styles.recordButtonActive : {}),
           }}
         >
-          ⏺
+          ●
         </button>
         <span style={styles.timeDisplay}>{formatTime(currentTime)}</span>
       </div>

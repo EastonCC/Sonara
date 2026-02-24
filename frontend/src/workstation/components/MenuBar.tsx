@@ -141,16 +141,11 @@ const ShortcutsContent: React.FC = () => (
 
 const AboutContent: React.FC = () => (
   <div style={{ textAlign: 'center', padding: '8px 0' }}>
-    <div style={{
-      fontSize: '32px', fontWeight: 700,
-      background: 'linear-gradient(135deg, #00d4ff 0%, #0096c7 100%)',
-      WebkitBackgroundClip: 'text',
-      WebkitTextFillColor: 'transparent',
-      fontFamily: "'Poppins', sans-serif",
-      marginBottom: '8px',
-    }}>
-      Sonara
-    </div>
+    <img
+      src="https://www.sonara.us/sonara_logo.svg"
+      alt="Sonara"
+      style={{ height: '48px', marginBottom: '8px' }}
+    />
     <div style={{ fontSize: '13px', color: '#888', marginBottom: '16px', fontFamily: "'Poppins', sans-serif" }}>
       Digital Audio Workstation
     </div>

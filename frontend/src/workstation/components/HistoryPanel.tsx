@@ -1,44 +1,48 @@
 import React, { useEffect, useRef, useState } from 'react';
 import useDawStore from '../state/dawStore';
+import * as Icons from './Icons';
 
-// Icon map for action labels
-const ACTION_ICONS: Record<string, string> = {
-  'Add Track': '➕',
-  'Delete Track': '🗑️',
-  'Rename Track': '✏️',
-  'Reorder Track': '↕️',
-  'Duplicate Track': '📋',
-  'Change Color': '🎨',
-  'Change Instrument': '🎹',
-  'Toggle Mute': '🔇',
-  'Toggle Solo': '🎧',
-  'Set Volume': '🔊',
-  'Set Pan': '↔️',
-  'Add Clip': '🎬',
-  'Delete Clip': '✂️',
-  'Move Clip': '↔️',
-  'Resize Clip': '↔️',
-  'Add Note': '🎵',
-  'Add Notes': '🎵',
-  'Delete Notes': '🗑️',
-  'Move Notes': '↔️',
-  'Resize Notes': '↔️',
-  'Paste Notes': '📋',
-  'Record Notes': '⏺',
-  'Set BPM': '⏱️',
-  'Change Effects': '🎛️',
-  'Quantize Notes': '🔧',
-  'Add Audio Clip': '🎤',
-  'Paste Clip': '📋',
-  'Automation': '📈',
-  'Initial State': '📄',
+// Icon map for action labels — returns React elements
+const ACTION_ICONS: Record<string, React.FC<{ color?: string }>> = {
+  'Add Track': Icons.Plus,
+  'Delete Track': Icons.Trash,
+  'Rename Track': Icons.Pencil,
+  'Reorder Track': Icons.Reorder,
+  'Duplicate Track': Icons.Duplicate,
+  'Change Color': Icons.Palette,
+  'Change Instrument': Icons.Piano,
+  'Toggle Mute': Icons.Mute,
+  'Toggle Solo': Icons.Solo,
+  'Set Volume': Icons.Volume,
+  'Set Pan': Icons.Pan,
+  'Add Clip': Icons.Clip,
+  'Delete Clip': Icons.Scissors,
+  'Move Clip': Icons.Pan,
+  'Resize Clip': Icons.Pan,
+  'Add Note': Icons.Note,
+  'Add Notes': Icons.Note,
+  'Delete Notes': Icons.Trash,
+  'Move Notes': Icons.Pan,
+  'Resize Notes': Icons.Pan,
+  'Paste Notes': Icons.Duplicate,
+  'Record Notes': Icons.Record,
+  'Set BPM': Icons.Clock,
+  'Change Effects': Icons.Knobs,
+  'Quantize': Icons.Quantize,
+  'Humanize': Icons.Humanize,
+  'Add Audio Clip': Icons.Microphone,
+  'Paste Clip': Icons.Duplicate,
+  'Automation': Icons.Automation,
+  'Initial State': Icons.Doc,
+  'Rename Clip': Icons.Pencil,
+  'Change Velocity': Icons.Vel,
 };
 
-const getIcon = (label: string): string => {
-  for (const [key, icon] of Object.entries(ACTION_ICONS)) {
-    if (label.includes(key) || label.toLowerCase().includes(key.toLowerCase())) return icon;
+const getIcon = (label: string): React.FC<{ color?: string }> | null => {
+  for (const [key, IconComp] of Object.entries(ACTION_ICONS)) {
+    if (label.includes(key) || label.toLowerCase().includes(key.toLowerCase())) return IconComp;
   }
-  return '•';
+  return null;
 };
 
 const HistoryPanel: React.FC = () => {
@@ -127,7 +131,16 @@ const HistoryPanel: React.FC = () => {
                 }
               }}
             >
-              <span style={styles.entryIcon}>{getIcon(label)}</span>
+              <span style={styles.entryIcon}>
+                {(() => {
+                  const IconComp = getIcon(label);
+                  if (IconComp) {
+                    const iconColor = isCurrent ? '#00d4ff' : isFuture ? '#555' : '#888';
+                    return <IconComp color={iconColor} size={12} />;
+                  }
+                  return <span style={{ fontSize: '10px' }}>•</span>;
+                })()}
+              </span>
               <span style={{
                 ...styles.entryLabel,
                 ...(isFuture ? { opacity: 0.35 } : {}),

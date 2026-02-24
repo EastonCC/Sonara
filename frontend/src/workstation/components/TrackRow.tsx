@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import useDawStore from '../state/dawStore';
 import { rebuildTrackSynth, isTrackSamplerLoaded, onSamplerLoad } from '../engine/TransportSync';
 import { decodeAudioFile } from '../utils/AudioUtils';
+import * as Icons from './Icons';
 
 interface TrackRowProps {
   trackId: number;
@@ -61,7 +62,7 @@ const TrackRow: React.FC<TrackRowProps> = ({ trackId, automationOpen, onToggleAu
 
   if (!track) return null;
 
-  const trackIcon = track.type === 'audio' ? '🎤' : track.type === 'drums' ? '🥁' : '🎹';
+  const TrackIcon = track.type === 'audio' ? Icons.Microphone : track.type === 'drums' ? Icons.Drums : Icons.Piano;
 
   const handleInstrumentChange = (presetId: string) => {
     const presetDef = getPreset(presetId);
@@ -154,7 +155,7 @@ const TrackRow: React.FC<TrackRowProps> = ({ trackId, automationOpen, onToggleAu
       <div style={styles.trackInfo}>
         <div style={styles.trackHeader}>
           <span style={{ ...styles.trackIcon, backgroundColor: track.color }}>
-            {trackIcon}
+            <TrackIcon color="#fff" size={14} />
           </span>
 
           {isRenaming ? (
@@ -194,16 +195,16 @@ const TrackRow: React.FC<TrackRowProps> = ({ trackId, automationOpen, onToggleAu
             {menuOpen && createPortal(
               <div ref={menuRef} style={{ ...styles.menu, top: menuPos.top, left: menuPos.left }}>
                 <button onClick={handleRename} style={styles.menuItem}>
-                  ✏️ Rename
+                  <Icons.Pencil color="#ccc" size={12} /> Rename
                 </button>
                 <button onClick={handleDuplicate} style={styles.menuItem}>
-                  📋 Duplicate
+                  <Icons.Duplicate color="#ccc" size={12} /> Duplicate
                 </button>
                 <button
                   onClick={() => setShowColorPicker(!showColorPicker)}
                   style={styles.menuItem}
                 >
-                  🎨 Color
+                  <Icons.Palette color="#ccc" size={12} /> Color
                 </button>
                 {showColorPicker && (
                   <div style={styles.colorGrid}>
@@ -222,7 +223,7 @@ const TrackRow: React.FC<TrackRowProps> = ({ trackId, automationOpen, onToggleAu
                 )}
                 <div style={styles.menuDivider} />
                 <button onClick={handleDelete} style={{ ...styles.menuItem, color: '#e74c3c' }}>
-                  🗑️ Delete
+                  <Icons.Trash color="#e74c3c" size={12} /> Delete
                 </button>
               </div>,
               document.body
@@ -241,7 +242,7 @@ const TrackRow: React.FC<TrackRowProps> = ({ trackId, automationOpen, onToggleAu
                 <optgroup key={category} label={category}>
                   {presets.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.type === 'sampler' ? '🎵 ' : '⚡ '}{p.name}
+                      {p.name}
                     </option>
                   ))}
                 </optgroup>

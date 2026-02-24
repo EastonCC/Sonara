@@ -157,6 +157,7 @@ interface DawStore {
   setNoteVelocity: (clipId: number, noteId: number, velocity: number) => void;
   setNotesVelocity: (clipId: number, noteIds: number[], velocity: number) => void;
   humanizeNotes: (clipId: number, noteIds: number[], timingAmount: number, velocityAmount: number) => void;
+  quantizeNotes: (clipId: number, noteIds: number[], gridSize: number, strength: number) => void;
 
   undo: () => void;
   redo: () => void;
@@ -561,6 +562,24 @@ const useDawStore = create<DawStore>((set, get) => ({
             const velShift = Math.round((Math.random() - 0.5) * 2 * velocityAmount);
             const newVel = Math.max(1, Math.min(127, n.velocity + velShift));
             return { ...n, startBeat: newStart, velocity: newVel };
+          }),
+        } : c),
+      })),
+    };
+  }),
+
+  quantizeNotes: (clipId, noteIds, gridSize, strength) => withUndo(set, 'Quantize', (s) => {
+    const idSet = new Set(noteIds);
+    // strength: 0 = no change, 1 = full snap
+    const str = Math.max(0, Math.min(1, strength));
+    return {
+      tracks: s.tracks.map((t) => ({
+        ...t, clips: t.clips.map((c) => c.id === clipId ? {
+          ...c, notes: c.notes.map((n) => {
+            if (!idSet.has(n.id)) return n;
+            const nearest = Math.round(n.startBeat / gridSize) * gridSize;
+            const newStart = n.startBeat + (nearest - n.startBeat) * str;
+            return { ...n, startBeat: Math.max(0, newStart) };
           }),
         } : c),
       })),

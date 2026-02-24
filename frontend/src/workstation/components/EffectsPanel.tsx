@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import useDawStore from '../state/dawStore';
 import { TrackEffects, DEFAULT_EFFECTS } from '../models/types';
 import { updateEffects } from '../engine/TransportSync';
+import * as Icons from './Icons';
 
 interface EffectsPanelProps {
   trackId: number;
@@ -31,7 +32,7 @@ const EffectsPanel: React.FC<EffectsPanelProps> = ({ trackId }) => {
         {/* ─── Reverb ─── */}
         <div style={styles.effectCard}>
           <div style={styles.effectHeader}>
-            <span style={styles.effectTitle}>🌊 Reverb</span>
+            <span style={styles.effectTitle}><Icons.Reverb color="#00d4ff" size={14} /> Reverb</span>
             <span style={styles.effectValue}>{fx.reverbMix}%</span>
           </div>
           <div style={styles.knobRow}>
@@ -56,7 +57,7 @@ const EffectsPanel: React.FC<EffectsPanelProps> = ({ trackId }) => {
         {/* ─── Delay ─── */}
         <div style={styles.effectCard}>
           <div style={styles.effectHeader}>
-            <span style={styles.effectTitle}>🔁 Delay</span>
+            <span style={styles.effectTitle}><Icons.Delay color="#00d4ff" size={14} /> Delay</span>
             <span style={styles.effectValue}>{fx.delayMix}%</span>
           </div>
           <div style={styles.knobRow}>
@@ -90,7 +91,7 @@ const EffectsPanel: React.FC<EffectsPanelProps> = ({ trackId }) => {
         {/* ─── Filter ─── */}
         <div style={styles.effectCard}>
           <div style={styles.effectHeader}>
-            <span style={styles.effectTitle}>🎛️ Filter</span>
+            <span style={styles.effectTitle}><Icons.Filter color="#00d4ff" size={14} /> Filter</span>
             <button
               onClick={() => update({ filterEnabled: !fx.filterEnabled })}
               style={{
@@ -182,6 +183,9 @@ const styles: { [key: string]: React.CSSProperties } = {
     fontSize: '13px',
     fontWeight: 600,
     color: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
   },
   effectValue: {
     fontSize: '11px',
