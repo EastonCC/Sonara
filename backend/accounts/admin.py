@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth import get_user_model
+from .models import Project, Publication
 
 User = get_user_model()
 
@@ -16,3 +17,17 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
         ("Roles", {"fields": ("is_listener", "is_creator")}),
     )
+
+
+@admin.register(Project)
+class ProjectAdmin(admin.ModelAdmin):
+    list_display = ("name", "user", "created_at", "updated_at")
+    list_filter = ("user",)
+    search_fields = ("name", "user__username")
+
+
+@admin.register(Publication)
+class PublicationAdmin(admin.ModelAdmin):
+    list_display = ("title", "user", "is_public", "play_count", "published_at")
+    list_filter = ("is_public", "user")
+    search_fields = ("title", "user__username")

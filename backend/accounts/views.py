@@ -10,6 +10,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
+from django.db import models as db_models
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.utils.decorators import method_decorator
@@ -19,8 +20,8 @@ from datetime import datetime, timedelta
 import resend
 import os
 
-from .serializers import UserSerializer, ProfileUpdateSerializer, TrackSerializer
-from .models import Track
+from .serializers import UserSerializer, ProfileUpdateSerializer, TrackSerializer, ProjectSerializer, ProjectListSerializer, PublicationSerializer
+from .models import Track, Project, Publication
 
 resend.api_key = os.environ.get('RESEND_API_KEY')
 User = get_user_model()
@@ -209,3 +210,92 @@ class TrackDeleteView(generics.DestroyAPIView):
         if instance.audio_file:
             default_storage.delete(instance.audio_file.name)
         instance.delete()
+
+
+# ═══════════════════════════════════════════
+# Project endpoints (save/load DAW state)
+# ═══════════════════════════════════════════
+
+class ProjectListCreateView(generics.ListCreateAPIView):
+    """List user's projects (lightweight) or create a new one."""
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return ProjectListSerializer
+        return ProjectSerializer
+
+    def get_queryset(self):
+        return Project.objects.filter(user=self.request.user)
+
+
+class ProjectDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Get, update, or delete a specific project."""
+    serializer_class = ProjectSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Project.objects.filter(user=self.request.user)
+
+
+# ═══════════════════════════════════════════
+# Publication endpoints (public songs)
+# ═══════════════════════════════════════════
+
+class PublicationListCreateView(generics.ListCreateAPIView):
+    """List user's own publications or create (publish) a new one."""
+    serializer_class = PublicationSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_queryset(self):
+        return Publication.objects.filter(user=self.request.user)
+
+
+class PublicationDeleteView(generics.DestroyAPIView):
+    """Delete a publication (only if owner)."""
+    serializer_class = PublicationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Publication.objects.filter(user=self.request.user)
+
+    def perform_destroy(self, instance):
+        if instance.audio_file:
+            default_storage.delete(instance.audio_file.name)
+        if instance.cover_image:
+            default_storage.delete(instance.cover_image.name)
+        instance.delete()
+
+
+class PublicFeedView(generics.ListAPIView):
+    """Public feed — list all published songs (no auth required)."""
+    serializer_class = PublicationSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        return Publication.objects.filter(is_public=True)
+
+
+class UserPublicationsView(generics.ListAPIView):
+    """View a specific user's public publications (no auth required)."""
+    serializer_class = PublicationSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        username = self.kwargs.get('username')
+        return Publication.objects.filter(user__username=username, is_public=True)
+
+
+class PublicationPlayView(APIView):
+    """Increment play count for a publication."""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, pk):
+        try:
+            pub = Publication.objects.get(pk=pk, is_public=True)
+            pub.play_count = db_models.F('play_count') + 1
+            pub.save(update_fields=['play_count'])
+            return Response({'status': 'ok'})
+        except Publication.DoesNotExist:
+            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)

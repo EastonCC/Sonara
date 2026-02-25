@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.files.storage import default_storage
-from .models import Track
+from .models import Track, Project, Publication
 
 User = get_user_model()
 
@@ -118,6 +118,43 @@ class TrackSerializer(serializers.ModelSerializer):
         if value.size > AUDIO_MAX_SIZE:
             raise serializers.ValidationError('Audio file must be under 50 MB.')
         return value
+
+    def create(self, validated_data):
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class ProjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Project
+        fields = ('id', 'name', 'data', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+    def create(self, validated_data):
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data)
+
+
+class ProjectListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for listing projects (no data payload)."""
+    class Meta:
+        model = Project
+        fields = ('id', 'name', 'created_at', 'updated_at')
+        read_only_fields = ('id', 'created_at', 'updated_at')
+
+
+class PublicationSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source='user.username', read_only=True)
+    profile_picture = serializers.ImageField(source='user.profile_picture', read_only=True)
+
+    class Meta:
+        model = Publication
+        fields = (
+            'id', 'title', 'description', 'audio_file', 'cover_image',
+            'is_public', 'play_count', 'published_at',
+            'project', 'username', 'profile_picture',
+        )
+        read_only_fields = ('id', 'play_count', 'published_at', 'username', 'profile_picture')
 
     def create(self, validated_data):
         validated_data['user'] = self.context['request'].user
