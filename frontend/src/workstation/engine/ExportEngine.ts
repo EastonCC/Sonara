@@ -359,3 +359,47 @@ export async function exportToMp3(): Promise<void> {
   const blob = new Blob(mp3Data, { type: 'audio/mp3' });
   downloadBlob(blob, `${projectName || 'Untitled'}.mp3`);
 }
+
+/** Render the project to an MP3 Blob (for publishing — no download) */
+export async function renderToMp3Blob(): Promise<Blob> {
+  let lamejs: any;
+  try {
+    lamejs = await loadLamejs();
+  } catch {
+    // Fallback to WAV blob
+    const { buffer } = await renderOffline();
+    const wav = audioBufferToWav(buffer);
+    return wav;
+  }
+
+  const { buffer } = await renderOffline();
+  const sampleRate = buffer.sampleRate;
+  const numChannels = buffer.numberOfChannels;
+  const samples = buffer.length;
+
+  const mp3encoder = new lamejs.Mp3Encoder(numChannels, sampleRate, 192);
+  const mp3Data: Uint8Array[] = [];
+
+  const leftChannel = buffer.getChannelData(0);
+  const rightChannel = numChannels > 1 ? buffer.getChannelData(1) : leftChannel;
+
+  const left = new Int16Array(samples);
+  const right = new Int16Array(samples);
+  for (let i = 0; i < samples; i++) {
+    left[i] = Math.max(-32768, Math.min(32767, Math.round(leftChannel[i] * 32767)));
+    right[i] = Math.max(-32768, Math.min(32767, Math.round(rightChannel[i] * 32767)));
+  }
+
+  const chunkSize = 1152;
+  for (let i = 0; i < samples; i += chunkSize) {
+    const leftChunk = left.subarray(i, i + chunkSize);
+    const rightChunk = right.subarray(i, i + chunkSize);
+    const mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
+    if (mp3buf.length > 0) mp3Data.push(mp3buf);
+  }
+
+  const end = mp3encoder.flush();
+  if (end.length > 0) mp3Data.push(end);
+
+  return new Blob(mp3Data, { type: 'audio/mp3' });
+}

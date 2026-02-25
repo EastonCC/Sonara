@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import useDawStore from './state/dawStore';
 import { initAudio, dispose, play as enginePlay, pause as enginePause } from './engine/TransportSync';
 import { decodeAudioFile } from './utils/AudioUtils';
+import { createProject, saveProject, getProject } from './api/projectApi';
 import MenuBar from './components/MenuBar';
 import Transport from './components/Transport';
 import TrackRow from './components/TrackRow';
@@ -20,6 +21,7 @@ const DAW = () => {
   const projectName = useDawStore((s) => s.projectName);
   const pianoRollClipId = useDawStore((s) => s.pianoRollClipId);
   const tracks = useDawStore((s) => s.tracks);
+  const serverProjectId = useDawStore((s) => s.serverProjectId);
   const addTrack = useDawStore((s) => s.addTrack);
 
   const [automationOpen, setAutomationOpen] = useState<Set<number>>(new Set());
@@ -90,6 +92,37 @@ const DAW = () => {
     const accessToken = localStorage.getItem('accessToken');
     if (!accessToken) navigate('/login');
   }, [navigate, projectName]);
+
+  // Load project from server on mount
+  useEffect(() => {
+    const id = projectId ? parseInt(projectId) : null;
+    if (id) {
+      getProject(id).then((proj) => {
+        useDawStore.getState().setServerProjectId(proj.id);
+        useDawStore.getState().loadProjectData(proj.data);
+      }).catch((err) => {
+        console.error('Failed to load project:', err);
+      });
+    }
+  }, [projectId]);
+
+  // Save project
+  const handleSaveProject = useCallback(async () => {
+    const state = useDawStore.getState();
+    const data = state.getProjectData();
+    try {
+      if (state.serverProjectId) {
+        await saveProject(state.serverProjectId, state.projectName, data);
+      } else {
+        const proj = await createProject(state.projectName, data);
+        state.setServerProjectId(proj.id);
+        window.history.replaceState(null, '', `/daw/${proj.id}`);
+      }
+      useDawStore.setState({ lastSavedAt: new Date().toISOString() });
+    } catch (err) {
+      console.error('Save failed:', err);
+    }
+  }, []);
 
   useEffect(() => { return () => dispose(); }, []);
 
@@ -198,9 +231,10 @@ const DAW = () => {
         e.preventDefault();
         state.toggleMixer();
       }
-      // Save (placeholder)
+      // Save project
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
+        handleSaveProject();
       }
       // Delete: notes if selected in piano roll, otherwise selected clip
       if (e.key === 'Delete' || e.key === 'Backspace') {

@@ -93,6 +93,9 @@ const pushUndo = (tracks: Track[], label: string) => {
 interface DawStore {
   projectName: string;
   setProjectName: (name: string) => void;
+  serverProjectId: number | null;
+  setServerProjectId: (id: number | null) => void;
+  lastSavedAt: string | null;
 
   isPlaying: boolean;
   isRecording: boolean;
@@ -191,6 +194,8 @@ interface DawStore {
   setZoom: (zoom: number) => void;
   snapEnabled: boolean;
   toggleSnap: () => void;
+  getProjectData: () => any;
+  loadProjectData: (data: any) => void;
 }
 
 // Helper: wraps a tracks mutation with undo
@@ -208,6 +213,9 @@ const withUndo = (
 const useDawStore = create<DawStore>((set, get) => ({
   projectName: 'Untitled Project',
   setProjectName: (projectName) => set({ projectName }),
+  serverProjectId: null,
+  setServerProjectId: (id) => set({ serverProjectId: id }),
+  lastSavedAt: null,
 
   isPlaying: false,
   isRecording: false,
@@ -873,6 +881,58 @@ const useDawStore = create<DawStore>((set, get) => ({
   setZoom: (zoom) => set({ zoom }),
   snapEnabled: true,
   toggleSnap: () => set((s) => ({ snapEnabled: !s.snapEnabled })),
+
+  // ─── Project save/load ───
+  getProjectData: () => {
+    const s = get();
+    return {
+      projectName: s.projectName,
+      bpm: s.bpm,
+      timeSignature: s.timeSignature,
+      musicalKey: s.musicalKey,
+      tracks: s.tracks
+        .filter((t) => t.type !== 'audio') // Only save instrument/drum tracks
+        .map((t) => ({
+          id: t.id,
+          name: t.name,
+          type: t.type,
+          instrument: t.instrument,
+          color: t.color,
+          muted: t.muted,
+          solo: t.solo,
+          volume: t.volume,
+          pan: t.pan,
+          effects: t.effects,
+          volumeAutomation: t.volumeAutomation,
+          clips: t.clips.map((c) => ({
+            id: c.id,
+            name: c.name,
+            startBeat: c.startBeat,
+            duration: c.duration,
+            notes: c.notes,
+          })),
+        })),
+    };
+  },
+  loadProjectData: (data: any) => {
+    if (!data) return;
+    set({
+      projectName: data.projectName || 'Untitled Project',
+      bpm: data.bpm || 120,
+      timeSignature: data.timeSignature || { numerator: 4, denominator: 4 },
+      musicalKey: data.musicalKey || 'C',
+      tracks: data.tracks || [],
+      // Reset editing state
+      selectedClipId: null,
+      pianoRollClipId: null,
+      pianoRollTrackId: null,
+      selectedNoteIds: new Set(),
+      lastSavedAt: new Date().toISOString(),
+    });
+    // Clear undo history for loaded project
+    undoStack = [];
+    redoStack = [];
+  },
 }));
 
 export default useDawStore;

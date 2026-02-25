@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import useDawStore from '../state/dawStore';
-import { exportToWav, exportToMp3 } from '../engine/ExportEngine';
+import { exportToWav, exportToMp3, renderToMp3Blob } from '../engine/ExportEngine';
 import { parseMidiFile, midiToClipNotes } from '../engine/MidiParser';
+import { createProject, saveProject, publishSong } from '../api/projectApi';
 
 // ─── Modal Component ───
 
@@ -299,6 +300,57 @@ const MenuBar: React.FC = () => {
     setIsExporting(false);
   };
 
+  const handleSave = async () => {
+    const state = useDawStore.getState();
+    const data = state.getProjectData();
+    try {
+      if (state.serverProjectId) {
+        await saveProject(state.serverProjectId, state.projectName, data);
+      } else {
+        const proj = await createProject(state.projectName, data);
+        state.setServerProjectId(proj.id);
+        window.history.replaceState(null, '', `/daw/${proj.id}`);
+      }
+      useDawStore.setState({ lastSavedAt: new Date().toISOString() });
+      alert('Project saved!');
+    } catch (err) {
+      console.error('Save failed:', err);
+      alert('Failed to save project.');
+    }
+  };
+
+  const handlePublish = async () => {
+    const state = useDawStore.getState();
+    const title = prompt('Song title:', state.projectName);
+    if (!title) return;
+    const description = prompt('Description (optional):', '') || '';
+
+    setIsExporting(true);
+    try {
+      // Save project first
+      const data = state.getProjectData();
+      let projId = state.serverProjectId;
+      if (projId) {
+        await saveProject(projId, state.projectName, data);
+      } else {
+        const proj = await createProject(state.projectName, data);
+        projId = proj.id;
+        state.setServerProjectId(proj.id);
+      }
+
+      // Render to MP3 blob
+      const audioBlob = await renderToMp3Blob();
+
+      // Publish
+      await publishSong(audioBlob, title, description, projId || undefined);
+      alert('Song published to your profile!');
+    } catch (err) {
+      console.error('Publish failed:', err);
+      alert('Failed to publish. Make sure you are logged in.');
+    }
+    setIsExporting(false);
+  };
+
   const handleImportMidi = () => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -360,12 +412,14 @@ const MenuBar: React.FC = () => {
       def: {
         label: 'File',
         items: [
-          { label: 'Save Project', shortcut: 'Ctrl+S' },
+          { label: 'Save Project', shortcut: 'Ctrl+S', action: handleSave },
           { divider: true, label: '' },
           { label: 'Import MIDI File', action: handleImportMidi },
           { divider: true, label: '' },
           { label: 'Export as WAV', action: handleExportWav, disabled: isExporting },
           { label: 'Export as MP3', action: handleExportMp3, disabled: isExporting },
+          { divider: true, label: '' },
+          { label: '🚀 Publish Song', action: handlePublish, disabled: isExporting },
           { divider: true, label: '' },
           { label: 'Exit to Dashboard', action: () => navigate('/create') },
         ],

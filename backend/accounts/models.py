@@ -80,6 +80,63 @@ class Track(models.Model):
         return f"{self.title} — {self.user.username}"
 
 
+class Project(models.Model):
+    """A DAW project — stores the full state as JSON."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='projects',
+    )
+    name = models.CharField(max_length=255, default='Untitled Project')
+    data = models.JSONField(default=dict, help_text='Full DAW state: tracks, clips, notes, effects, bpm, etc.')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"{self.name} — {self.user.username}"
+
+
+class Publication(models.Model):
+    """A published song — public-facing, rendered from a project."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='publications',
+    )
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='publications',
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default='')
+    audio_file = models.FileField(
+        upload_to='publications/',
+        validators=[validate_audio_size],
+        storage=RawMediaCloudinaryStorage()
+    )
+    cover_image = models.ImageField(
+        upload_to='publications/covers/',
+        blank=True,
+        null=True,
+        validators=[validate_image_size]
+    )
+    is_public = models.BooleanField(default=True)
+    play_count = models.PositiveIntegerField(default=0)
+    published_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-published_at']
+
+    def __str__(self):
+        return f"{self.title} — {self.user.username}"
+
+
 # ============ Cleanup signals - delete files from Cloudinary ============
 
 @receiver(pre_delete, sender=User)
@@ -96,6 +153,15 @@ def delete_track_file(sender, instance, **kwargs):
     """Delete audio file from Cloudinary when track is deleted"""
     if instance.audio_file:
         instance.audio_file.delete(save=False)
+
+
+@receiver(pre_delete, sender=Publication)
+def delete_publication_files(sender, instance, **kwargs):
+    """Delete audio file and cover image from Cloudinary when publication is deleted"""
+    if instance.audio_file:
+        instance.audio_file.delete(save=False)
+    if instance.cover_image:
+        instance.cover_image.delete(save=False)
 
 
 @receiver(pre_save, sender=User)
