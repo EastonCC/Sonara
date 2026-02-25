@@ -169,7 +169,6 @@ interface DawStore {
 
   undo: () => void;
   redo: () => void;
-  pushUndoSnapshot: (label: string) => void;
   canUndo: boolean;
   canRedo: boolean;
   undoLabel: string;
@@ -635,11 +634,6 @@ const useDawStore = create<DawStore>((set, get) => ({
   }),
 
   // Undo/Redo
-  pushUndoSnapshot: (label: string) => {
-    const { tracks, undoVersion } = get();
-    pushUndo(tracks, label);
-    set({ canUndo: true, canRedo: false, undoLabel: label, redoLabel: '', undoVersion: undoVersion + 1 });
-  },
   undo: () => {
     if (undoStack.length === 0) return;
     const current = get();
