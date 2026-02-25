@@ -46,7 +46,7 @@ const DAW = () => {
     if (isMidi) {
       // Import MIDI — create instrument tracks
       try {
-        const { parseMidiFile, midiToClipNotes } = await import('../engine/MidiParser');
+        const { parseMidiFile, midiToClipNotes } = await import('./engine/MidiParser');
         const buffer = await file.arrayBuffer();
         const parsed = parseMidiFile(buffer);
 
