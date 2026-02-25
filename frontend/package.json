@@ -12,7 +12,9 @@
   "dependencies": {
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
-    "react-router-dom": "^7.13.0"
+    "react-router-dom": "^7.13.0",
+    "tone": "^15.1.22",
+    "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@types/react": "^19.2.10",
