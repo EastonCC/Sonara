@@ -1,8 +1,9 @@
 // API service for project save/load and publishing
 // Endpoints follow the pattern: ${API_BASE_URL}/api/auth/...
 
-const getApiBase = () => 
-    import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+const getApiBase = () =>
+  (typeof import !== 'undefined' && (import.meta as any)?.env?.VITE_API_BASE_URL) ||
+  'http://127.0.0.1:8000';
 
 const getHeaders = () => {
   const token = localStorage.getItem('accessToken');
@@ -57,7 +58,11 @@ export async function createProject(name: string, data: any): Promise<ProjectFul
     headers: getHeaders(),
     body: JSON.stringify({ name, data }),
   });
-  if (!res.ok) throw new Error('Failed to create project');
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    console.error('createProject failed:', res.status, errBody);
+    throw new Error(`Failed to create project: ${res.status} ${errBody}`);
+  }
   return res.json();
 }
 
@@ -68,7 +73,11 @@ export async function saveProject(id: number, name: string, data: any): Promise<
     headers: getHeaders(),
     body: JSON.stringify({ name, data }),
   });
-  if (!res.ok) throw new Error('Failed to save project');
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    console.error('saveProject failed:', res.status, errBody);
+    throw new Error(`Failed to save project: ${res.status} ${errBody}`);
+  }
   return res.json();
 }
 
