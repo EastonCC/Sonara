@@ -23,7 +23,7 @@ const App = () => {
       <Route path="/listenerHome" element={<Navigate to="/home" replace />} />
       <Route path="*" element={<NotFound />} />
       <Route path="/create" element={<Create />} />
-      <Route path="/workstation" element={<Workstation />} />
+      <Route path="/workstation/:projectId?" element={<Workstation />} />
     </Routes>
   );
 };

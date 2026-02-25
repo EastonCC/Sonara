@@ -309,7 +309,7 @@ const MenuBar: React.FC = () => {
       } else {
         const proj = await createProject(state.projectName, data);
         state.setServerProjectId(proj.id);
-        window.history.replaceState(null, '', `/daw/${proj.id}`);
+        window.history.replaceState(null, '', `/workstation/${proj.id}`);
       }
       useDawStore.setState({ lastSavedAt: new Date().toISOString() });
       alert('Project saved!');

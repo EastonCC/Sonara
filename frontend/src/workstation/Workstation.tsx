@@ -46,7 +46,7 @@ const DAW = () => {
     if (isMidi) {
       // Import MIDI — create instrument tracks
       try {
-        const { parseMidiFile, midiToClipNotes } = await import('./engine/MidiParser');
+        const { parseMidiFile, midiToClipNotes } = await import('../engine/MidiParser');
         const buffer = await file.arrayBuffer();
         const parsed = parseMidiFile(buffer);
 
@@ -116,7 +116,7 @@ const DAW = () => {
       } else {
         const proj = await createProject(state.projectName, data);
         state.setServerProjectId(proj.id);
-        window.history.replaceState(null, '', `/daw/${proj.id}`);
+        window.history.replaceState(null, '', `/workstation/${proj.id}`);
       }
       useDawStore.setState({ lastSavedAt: new Date().toISOString() });
     } catch (err) {
