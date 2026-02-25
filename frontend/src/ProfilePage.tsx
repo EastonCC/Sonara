@@ -45,6 +45,10 @@ const ProfilePage = () => {
   const [uploadError, setUploadError] = useState('');
   const [deletingTrackId, setDeletingTrackId] = useState<number | null>(null);
   const [playingTrackId, setPlayingTrackId] = useState<number | null>(null);
+  const [publications, setPublications] = useState<any[]>([]);
+  const [pubsLoading, setPubsLoading] = useState(false);
+  const [deletingPubId, setDeletingPubId] = useState<number | null>(null);
+  const [playingPubId, setPlayingPubId] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const trackInputRef = useRef<HTMLInputElement>(null);
   const headerInputRef = useRef<HTMLInputElement>(null);
@@ -91,6 +95,61 @@ const ProfilePage = () => {
       setTracksLoading(false);
     }
   }, [API_BASE_URL]);
+
+  const fetchPublications = useCallback(async () => {
+    const accessToken = localStorage.getItem('accessToken');
+    if (!accessToken) return;
+    setPubsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/publications/`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!response.ok) throw new Error('Failed to load publications');
+      const data = await response.json();
+      setPublications(data);
+    } catch {
+      /* silently fail */
+    } finally {
+      setPubsLoading(false);
+    }
+  }, [API_BASE_URL]);
+
+  const deletePublication = async (pubId: number) => {
+    const accessToken = localStorage.getItem('accessToken');
+    if (!confirm('Remove this published song?')) return;
+    setDeletingPubId(pubId);
+    try {
+      await fetch(`${API_BASE_URL}/api/auth/publications/${pubId}/`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (playingPubId === pubId) {
+        audioRef.current?.pause();
+        setPlayingPubId(null);
+      }
+      setPublications((prev) => prev.filter((p) => p.id !== pubId));
+    } catch { /* ignore */ }
+    setDeletingPubId(null);
+  };
+
+  const togglePlayPub = (pub: any) => {
+    if (playingPubId === pub.id) {
+      audioRef.current?.pause();
+      setPlayingPubId(null);
+      return;
+    }
+    // Stop any playing track too
+    setPlayingTrackId(null);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = new Audio(pub.audio_file);
+    } else {
+      audioRef.current = new Audio(pub.audio_file);
+    }
+    audioRef.current.onended = () => setPlayingPubId(null);
+    audioRef.current.play();
+    setPlayingPubId(pub.id);
+  };
 
   const uploadTrack = async () => {
     if (!trackFile) return;
@@ -254,7 +313,8 @@ const ProfilePage = () => {
 
   useEffect(() => {
     fetchTracks();
-  }, [fetchTracks]);
+    fetchPublications();
+  }, [fetchTracks, fetchPublications]);
 
   const headerPreviewUrl = useMemo(
     () => (headerFile ? URL.createObjectURL(headerFile) : null),
@@ -645,6 +705,53 @@ const ProfilePage = () => {
                         disabled={deletingTrackId === track.id}
                       >
                         {deletingTrackId === track.id ? '...' : '✕'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : activeTab === 'Posts' ? (
+            <div>
+              {pubsLoading ? (
+                <p style={styles.comingSoon}>Loading published songs...</p>
+              ) : publications.length === 0 ? (
+                <p style={styles.comingSoon}>No published songs yet. Use the DAW to create and publish!</p>
+              ) : (
+                <div style={styles.trackList}>
+                  {publications.map((pub) => (
+                    <div key={pub.id} style={styles.trackCard}>
+                      <button
+                        type="button"
+                        onClick={() => togglePlayPub(pub)}
+                        style={styles.playBtn}
+                        aria-label={playingPubId === pub.id ? 'Pause' : 'Play'}
+                      >
+                        {playingPubId === pub.id ? '⏸' : '▶'}
+                      </button>
+                      <div style={styles.trackInfo}>
+                        <span style={styles.trackTitle}>{pub.title}</span>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                          <span style={styles.trackDate}>
+                            {new Date(pub.published_at).toLocaleDateString()}
+                          </span>
+                          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>
+                            ▶ {pub.play_count} plays
+                          </span>
+                        </div>
+                        {pub.description && (
+                          <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
+                            {pub.description}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => deletePublication(pub.id)}
+                        style={styles.trackDeleteBtn}
+                        disabled={deletingPubId === pub.id}
+                      >
+                        {deletingPubId === pub.id ? '...' : '✕'}
                       </button>
                     </div>
                   ))}
