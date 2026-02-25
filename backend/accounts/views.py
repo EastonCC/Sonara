@@ -17,6 +17,7 @@ from django.utils.decorators import method_decorator
 from django.conf import settings
 from django_ratelimit.decorators import ratelimit
 from datetime import datetime, timedelta
+from rest_framework.throttling import AnonRateThrottle
 import resend
 import os
 
@@ -287,9 +288,13 @@ class UserPublicationsView(generics.ListAPIView):
         return Publication.objects.filter(user__username=username, is_public=True)
 
 
+class PlayCountThrottle(AnonRateThrottle):
+    scope = 'play_count'
+
 class PublicationPlayView(APIView):
     """Increment play count for a publication."""
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [PlayCountThrottle]
 
     def post(self, request, pk):
         try:

@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from './utils/api';
 
 interface UserProfile {
   id: number;
@@ -55,8 +56,6 @@ const ProfilePage = () => {
   const pfpInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
-
   const startEditing = () => {
     setEditBio(user?.bio ?? '');
     setEditIsListener(user?.is_listener ?? false);
@@ -79,13 +78,9 @@ const ProfilePage = () => {
   };
 
   const fetchTracks = useCallback(async () => {
-    const accessToken = localStorage.getItem('accessToken');
-    if (!accessToken) return;
     setTracksLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/tracks/`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const response = await apiFetch('/api/auth/tracks/');
       if (!response.ok) throw new Error('Failed to load tracks');
       const data = await response.json();
       setTracks(data);
@@ -94,16 +89,12 @@ const ProfilePage = () => {
     } finally {
       setTracksLoading(false);
     }
-  }, [API_BASE_URL]);
+  }, []);
 
   const fetchPublications = useCallback(async () => {
-    const accessToken = localStorage.getItem('accessToken');
-    if (!accessToken) return;
     setPubsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/publications/`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const response = await apiFetch('/api/auth/publications/');
       if (!response.ok) throw new Error('Failed to load publications');
       const data = await response.json();
       setPublications(data);
@@ -112,16 +103,14 @@ const ProfilePage = () => {
     } finally {
       setPubsLoading(false);
     }
-  }, [API_BASE_URL]);
+  }, []);
 
   const deletePublication = async (pubId: number) => {
-    const accessToken = localStorage.getItem('accessToken');
     if (!confirm('Remove this published song?')) return;
     setDeletingPubId(pubId);
     try {
-      await fetch(`${API_BASE_URL}/api/auth/publications/${pubId}/`, {
+      await apiFetch(`/api/auth/publications/${pubId}/`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (playingPubId === pubId) {
         audioRef.current?.pause();
@@ -153,17 +142,14 @@ const ProfilePage = () => {
 
   const uploadTrack = async () => {
     if (!trackFile) return;
-    const accessToken = localStorage.getItem('accessToken');
-    if (!accessToken) return;
     setUploading(true);
     setUploadError('');
     try {
       const formData = new FormData();
       formData.append('audio_file', trackFile);
       formData.append('title', trackTitle.trim() || trackFile.name.replace(/\.[^/.]+$/, ''));
-      const response = await fetch(`${API_BASE_URL}/api/auth/tracks/`, {
+      const response = await apiFetch('/api/auth/tracks/', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}` },
         body: formData,
       });
       if (!response.ok) {
@@ -186,13 +172,10 @@ const ProfilePage = () => {
   };
 
   const deleteTrack = async (trackId: number) => {
-    const accessToken = localStorage.getItem('accessToken');
-    if (!accessToken) return;
     setDeletingTrackId(trackId);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/tracks/${trackId}/`, {
+      const response = await apiFetch(`/api/auth/tracks/${trackId}/`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${accessToken}` },
       });
       if (!response.ok) throw new Error('Delete failed');
       if (playingTrackId === trackId) {
@@ -224,8 +207,6 @@ const ProfilePage = () => {
   };
 
   const saveProfile = async () => {
-    const accessToken = localStorage.getItem('accessToken');
-    if (!accessToken) return;
     setSaving(true);
     setSaveError('');
     try {
@@ -238,11 +219,8 @@ const ProfilePage = () => {
       if (removeHeader) formData.append('remove_header_image', 'true');
       if (removePfp) formData.append('remove_profile_picture', 'true');
 
-      const response = await fetch(`${API_BASE_URL}/api/auth/profile/`, {
+      const response = await apiFetch('/api/auth/profile/', {
         method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
         body: formData,
       });
       if (!response.ok) {
@@ -274,20 +252,8 @@ const ProfilePage = () => {
   // Fetch profile on mount
   useEffect(() => {
     const fetchProfile = async () => {
-      const accessToken = localStorage.getItem('accessToken');
-      if (!accessToken) {
-        navigate('/login');
-        return;
-      }
       try {
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
-        const response = await fetch(`${baseUrl}/api/auth/profile/`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
+        const response = await apiFetch('/api/auth/profile/');
         if (!response.ok) {
           throw new Error('Failed to fetch profile data');
         }

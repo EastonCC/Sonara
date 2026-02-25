@@ -89,8 +89,11 @@ const DAW = () => {
 
   useEffect(() => {
     document.title = `${projectName} | Sonara DAW`;
-    const accessToken = localStorage.getItem('accessToken');
-    if (!accessToken) navigate('/login');
+    // Auth guard: if no token at all, redirect immediately.
+    // For API calls, apiFetch (used in projectApi) handles refresh automatically.
+    if (!localStorage.getItem('accessToken') && !localStorage.getItem('refreshToken')) {
+      navigate('/login');
+    }
   }, [navigate, projectName]);
 
   // Load project from server on mount

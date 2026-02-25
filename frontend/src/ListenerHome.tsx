@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { apiFetch } from './utils/api';
 import sonaraLogo from './assets/sonara_logo.svg';
 
 const ListenerHome = () => {
@@ -11,22 +12,10 @@ const ListenerHome = () => {
   document.title = 'Home | Sonara';
   
   const verifyAuth = async () => {
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
-      navigate('/login');
-      return;
-    }
-    
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
-      const response = await fetch(`${API_BASE_URL}/api/auth/profile/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await apiFetch('/api/auth/profile/');
       
       if (!response.ok) {
-        // Token invalid or expired - clear and redirect
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
         navigate('/login');
         return;
       }
@@ -35,8 +24,6 @@ const ListenerHome = () => {
       setUsername(data.username);
       setLoading(false);
     } catch {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
       navigate('/login');
     }
   };
@@ -242,7 +229,7 @@ const styles: Record<string, React.CSSProperties> = {
   songsGrid: {
     display: 'grid',
     gridTemplateColumns: 'repeat(4, 1fr)',
-    gap: '15px',  // was 30px
+    gap: '15px',
   },
   songCard: {
     textAlign: 'center',
@@ -250,8 +237,8 @@ const styles: Record<string, React.CSSProperties> = {
     transition: 'transform 0.3s ease',
   },
   albumArt: {
-    width: '200px',   // was 150px
-    height: '200px',  // was 150px
+    width: '200px',
+    height: '200px',
     borderRadius: '50%',
     background: 'linear-gradient(135deg, #00d4ff 0%, #9b59b6 50%, #ff6b9d 100%)',
     margin: '0 auto 15px',

@@ -1,21 +1,5 @@
 // API service for project save/load and publishing
-// Endpoints follow the pattern: ${API_BASE_URL}/api/auth/...
-
-const getApiBase = () =>
-  import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
-
-const getHeaders = () => {
-  const token = localStorage.getItem('accessToken');
-  return {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json',
-  };
-};
-
-const getAuthHeader = () => {
-  const token = localStorage.getItem('accessToken');
-  return { 'Authorization': `Bearer ${token}` };
-};
+import { apiFetch } from '../../utils/api';
 
 // ═══════════════════════════════════════════
 // Project endpoints (save/load DAW state)
@@ -34,27 +18,22 @@ export interface ProjectFull extends ProjectSummary {
 
 /** List all user's projects (lightweight, no data payload) */
 export async function listProjects(): Promise<ProjectSummary[]> {
-  const res = await fetch(`${getApiBase()}/api/auth/projects/`, {
-    headers: getHeaders(),
-  });
+  const res = await apiFetch('/api/auth/projects/');
   if (!res.ok) throw new Error('Failed to list projects');
   return res.json();
 }
 
 /** Get a single project with full data */
 export async function getProject(id: number): Promise<ProjectFull> {
-  const res = await fetch(`${getApiBase()}/api/auth/projects/${id}/`, {
-    headers: getHeaders(),
-  });
+  const res = await apiFetch(`/api/auth/projects/${id}/`);
   if (!res.ok) throw new Error('Failed to load project');
   return res.json();
 }
 
 /** Create a new project */
 export async function createProject(name: string, data: any): Promise<ProjectFull> {
-  const res = await fetch(`${getApiBase()}/api/auth/projects/`, {
+  const res = await apiFetch('/api/auth/projects/', {
     method: 'POST',
-    headers: getHeaders(),
     body: JSON.stringify({ name, data }),
   });
   if (!res.ok) {
@@ -67,9 +46,8 @@ export async function createProject(name: string, data: any): Promise<ProjectFul
 
 /** Update (save) an existing project */
 export async function saveProject(id: number, name: string, data: any): Promise<ProjectFull> {
-  const res = await fetch(`${getApiBase()}/api/auth/projects/${id}/`, {
+  const res = await apiFetch(`/api/auth/projects/${id}/`, {
     method: 'PATCH',
-    headers: getHeaders(),
     body: JSON.stringify({ name, data }),
   });
   if (!res.ok) {
@@ -82,9 +60,8 @@ export async function saveProject(id: number, name: string, data: any): Promise<
 
 /** Delete a project */
 export async function deleteProject(id: number): Promise<void> {
-  const res = await fetch(`${getApiBase()}/api/auth/projects/${id}/`, {
+  const res = await apiFetch(`/api/auth/projects/${id}/`, {
     method: 'DELETE',
-    headers: getHeaders(),
   });
   if (!res.ok) throw new Error('Failed to delete project');
 }
@@ -123,9 +100,9 @@ export async function publishSong(
   if (projectId) formData.append('project', String(projectId));
   if (coverImage) formData.append('cover_image', coverImage);
 
-  const res = await fetch(`${getApiBase()}/api/auth/publications/`, {
+  // apiFetch detects FormData and skips Content-Type so the browser sets the boundary
+  const res = await apiFetch('/api/auth/publications/', {
     method: 'POST',
-    headers: getAuthHeader(),
     body: formData,
   });
   if (!res.ok) {
@@ -137,39 +114,39 @@ export async function publishSong(
 
 /** List the current user's publications */
 export async function listMyPublications(): Promise<Publication[]> {
-  const res = await fetch(`${getApiBase()}/api/auth/publications/`, {
-    headers: getHeaders(),
-  });
+  const res = await apiFetch('/api/auth/publications/');
   if (!res.ok) throw new Error('Failed to list publications');
   return res.json();
 }
 
 /** Delete a publication */
 export async function deletePublication(id: number): Promise<void> {
-  const res = await fetch(`${getApiBase()}/api/auth/publications/${id}/`, {
+  const res = await apiFetch(`/api/auth/publications/${id}/`, {
     method: 'DELETE',
-    headers: getHeaders(),
   });
   if (!res.ok) throw new Error('Failed to delete publication');
 }
 
-/** Public feed — no auth required */
+/** Public feed — no auth required (use plain fetch, no token needed) */
 export async function getPublicFeed(): Promise<Publication[]> {
-  const res = await fetch(`${getApiBase()}/api/auth/feed/`);
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+  const res = await fetch(`${API_BASE_URL}/api/auth/feed/`);
   if (!res.ok) throw new Error('Failed to load feed');
   return res.json();
 }
 
 /** Get a user's public publications — no auth required */
 export async function getUserPublications(username: string): Promise<Publication[]> {
-  const res = await fetch(`${getApiBase()}/api/auth/users/${username}/publications/`);
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+  const res = await fetch(`${API_BASE_URL}/api/auth/users/${username}/publications/`);
   if (!res.ok) throw new Error('Failed to load user publications');
   return res.json();
 }
 
-/** Increment play count */
+/** Increment play count — no auth required */
 export async function recordPlay(publicationId: number): Promise<void> {
-  await fetch(`${getApiBase()}/api/auth/publications/${publicationId}/play/`, {
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+  await fetch(`${API_BASE_URL}/api/auth/publications/${publicationId}/play/`, {
     method: 'POST',
   });
 }

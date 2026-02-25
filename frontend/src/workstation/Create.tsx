@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { apiFetch } from '../utils/api';
 import sonaraLogo from '../assets/sonara_logo.svg';
 import waveLeft from '../assets/wave-left.svg';
 import waveRight from '../assets/wave-right.svg';
@@ -16,25 +17,13 @@ const ArtistHome = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
-
   useEffect(() => {
     document.title = 'Artist Home | Sonara';
-    const accessToken = localStorage.getItem('accessToken');
-    if (!accessToken) {
-      navigate('/login');
-      return;
-    }
 
     // Fetch user's projects
     const fetchProjects = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/projects/`, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-        });
+        const response = await apiFetch('/api/auth/projects/');
         if (response.ok) {
           const data = await response.json();
           setProjects(data);
@@ -53,11 +42,9 @@ const ArtistHome = () => {
     e.preventDefault();
     e.stopPropagation();
     if (!confirm('Delete this project? This cannot be undone.')) return;
-    const accessToken = localStorage.getItem('accessToken');
     try {
-      await fetch(`${API_BASE_URL}/api/auth/projects/${projectId}/`, {
+      await apiFetch(`/api/auth/projects/${projectId}/`, {
         method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${accessToken}` },
       });
       setProjects((prev) => prev.filter((p) => p.id !== projectId));
     } catch (err) {
