@@ -100,11 +100,11 @@ const DAW = () => {
       getProject(id).then((proj) => {
         useDawStore.getState().setServerProjectId(proj.id);
         useDawStore.getState().loadProjectData(proj.data);
-      }).catch((err) => {
-        console.error('Failed to load project:', err);
+      }).catch(() => {
+        navigate('/404', { replace: true });
       });
     }
-  }, [projectId]);
+  }, [projectId, navigate]);
 
   // Save project
   const handleSaveProject = useCallback(async () => {
