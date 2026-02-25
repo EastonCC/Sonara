@@ -55,7 +55,10 @@ CORS_ALLOWED_ORIGINS = [
     "https://backend-production-0d0e6.up.railway.app",
 ]
 
-
+CSRF_TRUSTED_ORIGINS = [
+    'https://www.sonara.us',
+    'https://sonara.us',
+]
 
 
 # Application definition
