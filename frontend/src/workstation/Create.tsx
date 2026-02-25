@@ -6,14 +6,17 @@ import waveRight from '../assets/wave-right.svg';
 
 interface Project {
   id: number;
-  title: string;
-  lastModified: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
 }
 
 const ArtistHome = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 
   useEffect(() => {
     document.title = 'Artist Home | Sonara';
@@ -26,10 +29,10 @@ const ArtistHome = () => {
     // Fetch user's projects
     const fetchProjects = async () => {
       try {
-        const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
-        const response = await fetch(`${API_BASE_URL}/api/auth/tracks/`, {
+        const response = await fetch(`${API_BASE_URL}/api/auth/projects/`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
           },
         });
         if (response.ok) {
@@ -45,6 +48,36 @@ const ArtistHome = () => {
 
     fetchProjects();
   }, [navigate]);
+
+  const handleDeleteProject = async (projectId: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm('Delete this project? This cannot be undone.')) return;
+    const accessToken = localStorage.getItem('accessToken');
+    try {
+      await fetch(`${API_BASE_URL}/api/auth/projects/${projectId}/`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${accessToken}` },
+      });
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    } catch (err) {
+      console.error('Delete failed:', err);
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('accessToken');
@@ -96,10 +129,19 @@ const ArtistHome = () => {
                   style={styles.projectCard}
                 >
                   <div style={styles.projectInfo}>
-                    <span style={styles.projectTitle}>{project.title}</span>
-                    <span style={styles.projectDate}>{project.lastModified}</span>
+                    <span style={styles.projectTitle}>{project.name}</span>
+                    <span style={styles.projectDate}>Last saved {formatDate(project.updated_at)}</span>
                   </div>
-                  <span style={styles.projectArrow}>→</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <button
+                      onClick={(e) => handleDeleteProject(project.id, e)}
+                      style={styles.deleteButton}
+                      title="Delete project"
+                    >
+                      ✕
+                    </button>
+                    <span style={styles.projectArrow}>→</span>
+                  </div>
                 </Link>
               ))
             )}
@@ -282,6 +324,17 @@ const styles: { [key: string]: React.CSSProperties } = {
   projectArrow: {
     fontSize: '20px',
     color: '#00d4ff',
+  },
+  deleteButton: {
+    background: 'none',
+    border: '1px solid rgba(255,100,100,0.3)',
+    borderRadius: '6px',
+    color: 'rgba(255,100,100,0.6)',
+    cursor: 'pointer',
+    fontSize: '12px',
+    padding: '4px 8px',
+    fontFamily: "'Poppins', sans-serif",
+    transition: 'all 0.2s',
   },
   emptyText: {
     color: 'rgba(255, 255, 255, 0.5)',
