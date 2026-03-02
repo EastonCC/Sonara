@@ -1,3 +1,7 @@
+from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv()
+
 """
 Django settings for sonara_backend project.
 
@@ -10,11 +14,21 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
-from pathlib import Path
+
+import os
+import dj_database_url
+
+ENV = os.environ.get('ENV', 'dev')
+
+if ENV == 'dev':
+    FRONTEND_URL = 'http://localhost:5173'
+else:
+    FRONTEND_URL = 'https://www.sonara.us'
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+FRONTEND_URL = 'https://www.sonara.us'  # Change to 'http://localhost:5173' for local dev
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -23,15 +37,26 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-!x**%$*bjbnikce=72^r$_-k1is9l$h0s-q^!mpf1*qemk7cz3'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = (ENV == 'dev')
 
-ALLOWED_HOSTS = ['www.sonara.us', 'sonara.us', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = [
+    'www.sonara.us',
+    'sonara.us',
+    'localhost',
+    '127.0.0.1',
+    'backend-production-0d0e6.up.railway.app',
+]
+
 CORS_ALLOW_ALL_ORIGINS = False  # For development only
-CORS_ALLOWED_ORIGINS  = [
+
+CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "http://127.0.0.1:5173",
     "https://sonara.us",
     "https://www.sonara.us",
+    "https://backend-production-0d0e6.up.railway.app",
 ]
+
 
 
 
@@ -47,6 +72,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
+    'cloudinary_storage',  # Add BEFORE django.contrib.staticfiles if you want static files too
+    'cloudinary',
     'accounts',
 ]
 
@@ -86,12 +113,11 @@ WSGI_APPLICATION = 'sonara_backend.wsgi.application'
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default='sqlite:///db.sqlite3',
+        conn_max_age=600
+    )
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
@@ -143,6 +169,32 @@ STATIC_URL = 'static/'
 # Media files (user uploads)
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Cloudinary configuration (production only)
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
+}
+
+if ENV == 'dev':
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+else:
+    STORAGES = {
+        "default": {
+            "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
 
 from datetime import timedelta
 

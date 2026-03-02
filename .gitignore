@@ -1,13 +1,30 @@
-# --- Python / Django ---
-backend/SSem/
-backend/__pycache__/
-backend/db.sqlite3
-*.pyc
-.env
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+*.egg
 
-# --- Node / Next.js ---
-my-next-app/node_modules/
-my-next-app/.next/
-my-next-app/.env.local
-my-next-app/out/
+# Django
+db.sqlite3
+*.log
+media/
+
+# Node
+node_modules/
+frontend/dist/
+
+# OS
 .DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+*.swp
