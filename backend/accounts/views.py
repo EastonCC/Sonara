@@ -63,7 +63,6 @@ class ForgotPasswordView(APIView):
     @method_decorator(ratelimit(key='ip', rate='5/h', method='POST', block=False))
     @method_decorator(ratelimit(key='post:email', rate='5/h', method='POST', block=False))
     def post(self, request):
-        # Check if rate limited
         if getattr(request, 'limited', False):
             return Response({'error': 'Too many reset attempts. Please try again later.'}, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
@@ -75,16 +74,12 @@ class ForgotPasswordView(APIView):
         except User.DoesNotExist:
             return Response({'message': 'If an account with this email exists, a reset link has been sent.'})
 
-        # Generate token
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
 
-        # Build reset link
-        frontend_url = settings.FRONTEND_URL  # Add this to settings.py
+        frontend_url = settings.FRONTEND_URL
         reset_link = f"{frontend_url}/reset-password?uid={uid}&token={token}"
 
-        # Send email with Resend
-        # In your ForgotPasswordView, before sending the email:
         expires_at = datetime.now() + timedelta(hours=1)
         expires_formatted = expires_at.strftime("%B %d, %Y at %I:%M %p")
         resend.Emails.send({
@@ -104,7 +99,6 @@ class ForgotPasswordView(APIView):
                             <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #1a1a2e; border-radius: 12px; padding: 40px;">
                                 <tr>
                                     <td align="center">
-                                        <!-- Logo -->
                                         <img src="https://www.sonara.us/sonara_logo.png" alt="Sonara" style="width: 200px; margin-bottom: 30px;" />
                                     </td>
                                 </tr>
@@ -169,7 +163,6 @@ class ResetPasswordView(APIView):
         if not default_token_generator.check_token(user, token):
             return Response({'error': 'Invalid or expired reset link'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validate password
         try:
             validate_password(new_password, user)
         except ValidationError as e:
@@ -463,8 +456,7 @@ def _fuzzy_match(haystack, needle_words):
 
 
 class SearchView(APIView):
-    """Unified search across users, tracks, and publications. Public, no auth required.
-    Splits the query into words and does accent-insensitive matching."""
+    """Unified search across users, tracks, and publications."""
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
@@ -473,9 +465,6 @@ class SearchView(APIView):
             return Response({'users': [], 'tracks': [], 'publications': []})
 
         words = query.split()
-
-        # Build a loose DB filter using the first word to narrow candidates,
-        # then do precise accent-insensitive filtering in Python.
         first = words[0] if words else ''
 
         user_candidates = User.objects.filter(
@@ -521,7 +510,7 @@ class SearchView(APIView):
 # ═══════════════════════════════════════════
 
 class ToggleLikeView(APIView):
-    """Toggle like on a publication. Returns new like state and count."""
+    """Toggle like on a publication."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
@@ -532,11 +521,9 @@ class ToggleLikeView(APIView):
 
         like, created = Like.objects.get_or_create(user=request.user, publication=pub)
         if created:
-            # Liked
             pub.like_count = db_models.F('like_count') + 1
             pub.save(update_fields=['like_count'])
             pub.refresh_from_db()
-            # One notification per (liker, publication); refresh if they liked again after unlike.
             if pub.user != request.user:
                 now = timezone.now()
                 updated = Notification.objects.filter(
@@ -554,7 +541,6 @@ class ToggleLikeView(APIView):
                     )
             return Response({'liked': True, 'like_count': pub.like_count})
         else:
-            # Unlike — remove like notification so toggling doesn't stack duplicates
             Notification.objects.filter(
                 sender=request.user,
                 recipient=pub.user,
@@ -569,13 +555,12 @@ class ToggleLikeView(APIView):
 
 
 class LibraryView(APIView):
-    """List the authenticated user's liked publications and tracks (personal library)."""
+    """List the authenticated user's liked publications and tracks."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         ctx = {'request': request}
 
-        # Liked publications
         liked_pub_ids = Like.objects.filter(
             user=request.user
         ).values_list('publication_id', flat=True)
@@ -583,7 +568,6 @@ class LibraryView(APIView):
             id__in=liked_pub_ids, is_public=True
         ).select_related('user')
 
-        # Liked tracks
         liked_track_ids = TrackLike.objects.filter(
             user=request.user
         ).values_list('track_id', flat=True)
@@ -612,7 +596,7 @@ class TrackPlayView(APIView):
 
 
 class ToggleTrackLikeView(APIView):
-    """Toggle like on a track. Returns new like state and count."""
+    """Toggle like on a track."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
@@ -657,7 +641,7 @@ class ToggleTrackLikeView(APIView):
 
 
 class ToggleTrackRepostView(APIView):
-    """Toggle repost of a track (shows on your profile; creators can repost their own)."""
+    """Toggle repost of a track."""
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
@@ -746,7 +730,6 @@ class FollowingRepostsView(APIView):
             return Response([])
         ctx = {'request': request}
 
-        # Reposts from followed users
         reposts = (
             TrackRepost.objects.filter(user_id__in=following_ids)
             .select_related('track', 'track__user', 'user')
@@ -764,7 +747,6 @@ class FollowingRepostsView(APIView):
             for rp in reposts
         ]
 
-        # Recent track uploads from followed users
         uploads = (
             Track.objects.filter(user_id__in=following_ids)
             .select_related('user')
@@ -782,7 +764,6 @@ class FollowingRepostsView(APIView):
             for t in uploads
         ]
 
-        # Recent publication uploads from followed users
         pubs = (
             Publication.objects.filter(user_id__in=following_ids, is_public=True)
             .select_related('user')
@@ -800,7 +781,6 @@ class FollowingRepostsView(APIView):
             for p in pubs
         ]
 
-        # Merge and sort by timestamp, newest first
         combined = repost_items + upload_items + pub_items
         combined.sort(key=lambda x: x['timestamp'], reverse=True)
         return Response(combined[:25])
@@ -816,10 +796,7 @@ class TrendingTracksView(APIView):
 
     def get(self, request):
         ctx = {'request': request}
-        
-        # Get top 10 tracks by play_count
         top_tracks = Track.objects.order_by('-play_count')[:10]
-        # Get top 10 public publications by play_count
         top_pubs = Publication.objects.filter(is_public=True).order_by('-play_count')[:10]
 
         return Response({
@@ -834,10 +811,7 @@ class NewReleasesView(APIView):
 
     def get(self, request):
         ctx = {'request': request}
-
-        # Get 10 newest tracks
         new_tracks = Track.objects.order_by('-uploaded_at')[:10]
-        # Get 10 newest public publications
         new_pubs = Publication.objects.filter(is_public=True).order_by('-published_at')[:10]
 
         return Response({
@@ -854,14 +828,12 @@ _COMMENT_NOTIF_TYPES = (Notification.COMMENT, Notification.COMMENT_REPLY)
 
 
 def _notifications_visible_qs(user):
-    """Comment/reply notifications only if the comment still exists (linked row)."""
     return Notification.objects.filter(recipient=user).filter(
         ~Q(notification_type__in=_COMMENT_NOTIF_TYPES) | Q(comment_id__isnull=False),
     )
 
 
 def _notify_for_new_comment(*, comment, owner, sender, parent, track=None, publication=None):
-    """Notify content owner and/or parent author for a new comment or reply."""
     assert (track is None) != (publication is None)
     to_create = []
     if parent is None:
@@ -898,7 +870,6 @@ def _notify_for_new_comment(*, comment, owner, sender, parent, track=None, publi
                     comment=comment,
                 )
             )
-    # Parse @mentions from comment body
     already_notified = {sender.id} | {n.recipient_id for n in to_create}
     mentioned_usernames = set(re.findall(r'@(\w+)', comment.body))
     if mentioned_usernames:
@@ -1174,3 +1145,55 @@ class NotificationMarkAllReadView(APIView):
     def post(self, request):
         Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
         return Response({'status': 'ok'})
+
+
+# ═══════════════════════════════════════════
+# ── NEW: Marketplace / Purchase endpoints ──
+# ═══════════════════════════════════════════
+
+class PurchaseTrackView(APIView):
+    """Mock purchase a track. Saves a Purchase record to the database."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        from .models import Purchase
+        try:
+            track = Track.objects.get(pk=pk)
+        except Track.DoesNotExist:
+            return Response({'error': 'Not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        purchase, created = Purchase.objects.get_or_create(
+            user=request.user,
+            track=track,
+            defaults={'amount_paid': track.price}
+        )
+        if not created:
+            return Response({'error': 'Already purchased'}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({
+            'status': 'ok',
+            'track_title': track.title,
+            'amount_paid': str(track.price),
+            'purchased_at': purchase.purchased_at,
+        })
+
+
+class MyPurchasesView(APIView):
+    """List all tracks the authenticated user has purchased."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .models import Purchase
+        purchases = Purchase.objects.filter(
+            user=request.user
+        ).select_related('track', 'track__user')
+        ctx = {'request': request}
+        return Response([
+            {
+                'id': p.id,
+                'track': PublicTrackSerializer(p.track, context=ctx).data,
+                'amount_paid': str(p.amount_paid),
+                'purchased_at': p.purchased_at,
+            }
+            for p in purchases
+        ])

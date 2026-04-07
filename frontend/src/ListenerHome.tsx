@@ -323,9 +323,12 @@ const ListenerHome = () => {
           <Link to="/create" className="sidebar-link" style={styles.sidebarLink}>
             <span style={styles.sidebarIcon}><MusicIcon /></span> Create Music
           </Link>
-          <div style={{ ...styles.sidebarLink, opacity: 0.35, cursor: 'default' }}>
+
+          {/* ── CHANGED: Marketplace is now a real link instead of greyed out ── */}
+          <Link to="/marketplace" className="sidebar-link" style={styles.sidebarLink}>
             <span style={styles.sidebarIcon}><MarketplaceIcon /></span> Marketplace
-          </div>
+          </Link>
+
           <Link to="/notifications" className="sidebar-link" style={{ ...styles.sidebarLink, position: 'relative' }}>
             <span style={styles.sidebarIcon}><BellIcon /></span> Notifications
             {unreadCount > 0 && (
@@ -798,7 +801,6 @@ const styles: Record<string, React.CSSProperties> = {
   // ── Track grid (Tony's 6-column gradient cards) ───────────────────────────
   trackGrid: {
     display: 'grid',
-    /* minmax(0,1fr) so column width ignores huge image intrinsic sizes — keeps every cell equal */
     gridTemplateColumns: 'repeat(6, minmax(0, 1fr))',
     gap: 16,
   },
@@ -987,6 +989,11 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
     opacity: 0.7,
   },
+  waveBar: {
+    width: 3,
+    borderRadius: 2,
+    transition: 'height 0.1s',
+  },
   rowCount: {
     flexShrink: 0,
     fontSize: 12,
@@ -995,7 +1002,7 @@ const styles: Record<string, React.CSSProperties> = {
     textAlign: 'right',
   },
 
-  // Avatar badges (profile picture circle on track images)
+  // Avatar badges
   cardAvatarBadge: {
     position: 'absolute',
     bottom: 6,
@@ -1017,6 +1024,18 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '50%',
     objectFit: 'cover',
     border: '2px solid #13131f',
+    cursor: 'pointer',
+    zIndex: 2,
+  } as React.CSSProperties,
+  rowAvatarBadge: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: '50%',
+    objectFit: 'cover',
+    border: '1.5px solid #13131f',
     cursor: 'pointer',
     zIndex: 2,
   } as React.CSSProperties,

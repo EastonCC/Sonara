@@ -17,6 +17,8 @@ from .views import (
     TrackCommentsView, PublicationCommentsView,
     TrackCommentDeleteView, PublicationCommentDeleteView,
     ToggleTrackCommentLikeView, TogglePublicationCommentLikeView,
+    # ── NEW: Marketplace ──
+    PurchaseTrackView, MyPurchasesView,
 )
 
 urlpatterns = [
@@ -31,6 +33,7 @@ urlpatterns = [
     path('tracks/<int:pk>/play/', TrackPlayView.as_view(), name='track-play'),
     path('tracks/<int:pk>/like/', ToggleTrackLikeView.as_view(), name='track-like'),
     path('tracks/<int:pk>/repost/', ToggleTrackRepostView.as_view(), name='track-repost'),
+    path('tracks/<int:pk>/purchase/', PurchaseTrackView.as_view(), name='track-purchase'),  # ── NEW
     path('following-reposts/', FollowingRepostsView.as_view(), name='following-reposts'),
     path('tracks/<int:pk>/comments/', TrackCommentsView.as_view(), name='track-comments'),
     path('tracks/<int:pk>/comments/<int:comment_id>/like/', ToggleTrackCommentLikeView.as_view(), name='track-comment-like'),
@@ -51,6 +54,9 @@ urlpatterns = [
 
     # Library (user's liked songs)
     path('library/', LibraryView.as_view(), name='library'),
+
+    # ── NEW: Marketplace purchases ──
+    path('purchases/', MyPurchasesView.as_view(), name='my-purchases'),
 
     # Public endpoints (no auth required)
     path('explore/', PublicTracksView.as_view(), name='public-tracks'),

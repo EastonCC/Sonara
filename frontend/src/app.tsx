@@ -16,6 +16,7 @@ import ContentPage from './ContentPage';
 import NotificationsPage from './NotificationsPage';
 import PlayerBar from './components/PlayerBar';
 import TopBar from './components/TopBar';
+import Marketplace from './Marketplace'; {/* ── NEW */}
 
 const HIDDEN_TOPBAR_ROUTES = ['/login', '/signup', '/forgot-password', '/reset-password', '/'];
 
@@ -37,6 +38,7 @@ const App = () => {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/profile" element={<ProfileRedirect />} />
           <Route path="/home" element={<ListenerHome />} />
+          <Route path="/marketplace" element={<Marketplace />} /> {/* ── NEW */}
           <Route path="/listenerHome" element={<Navigate to="/home" replace />} />
           <Route path="/create" element={<Create />} />
           <Route path="/search" element={<SearchPage />} />

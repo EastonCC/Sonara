@@ -90,12 +90,37 @@ class Track(models.Model):
     play_count = models.PositiveIntegerField(default=0)
     like_count = models.PositiveIntegerField(default=0)
     repost_count = models.PositiveIntegerField(default=0)
+    # ── NEW: price field (0.00 = free) ──────────────────────────────────────
+    price = models.DecimalField(max_digits=6, decimal_places=2, default=0.00)
 
     class Meta:
         ordering = ['-uploaded_at']
 
     def __str__(self):
         return f"{self.title} — {self.user.username}"
+
+
+class Purchase(models.Model):
+    """A mock purchase of a track by a user."""
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='purchases',
+    )
+    track = models.ForeignKey(
+        Track,
+        on_delete=models.CASCADE,
+        related_name='purchases',
+    )
+    amount_paid = models.DecimalField(max_digits=6, decimal_places=2)
+    purchased_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('user', 'track')
+        ordering = ['-purchased_at']
+
+    def __str__(self):
+        return f"{self.user.username} bought {self.track.title}"
 
 
 class TrackRepost(models.Model):
@@ -408,17 +433,15 @@ def delete_old_user_files(sender, instance, **kwargs):
     """Delete old files when user uploads new profile picture or header"""
     if not instance.pk:
         return  # New user, nothing to delete
-    
+
     try:
         old_instance = User.objects.get(pk=instance.pk)
     except User.DoesNotExist:
         return
-    
-    # Delete old profile picture if changed
+
     if old_instance.profile_picture and old_instance.profile_picture != instance.profile_picture:
         old_instance.profile_picture.delete(save=False)
-    
-    # Delete old header if changed
+
     if old_instance.header_image and old_instance.header_image != instance.header_image:
         old_instance.header_image.delete(save=False)
 
@@ -428,12 +451,12 @@ def delete_old_track_file(sender, instance, **kwargs):
     """Delete old audio file and cover image when track is updated with new files"""
     if not instance.pk:
         return
-    
+
     try:
         old_instance = Track.objects.get(pk=instance.pk)
     except Track.DoesNotExist:
         return
-    
+
     if old_instance.audio_file and old_instance.audio_file != instance.audio_file:
         old_instance.audio_file.delete(save=False)
 
