@@ -6,8 +6,8 @@ Role : UX/UI Designer
 
 #Design Tool
 - Figma
-
-#Screens designed 
+  
+#Screens designed/ Weekly Update 
 - Login/Sign Up
 - Listener Home
 - Play Song
@@ -34,7 +34,7 @@ Role : UX/UI Designer
 #Design Tool
 - Figma
 
-#Screens designed 
+#Screens designed/ Weekly Update 
 - Setting page (started)
 - Publish page
 - Follow page
@@ -60,7 +60,7 @@ Role : UX/UI Designer
 #Design Tool
 - Figma
 
-#Screens designed 
+#Screens designed/ Weekly Update 
 - Setting's page
 - Share page
 - Set price page
@@ -86,7 +86,7 @@ Role : UX/UI Designer
 #Design Tool
 - Figma
 
-#Screens designed 
+#Screens designed/ Weekly Update 
 - Work on setting’s tab - settings page 
 - Work on recent’s tab - settings page 
 - Work on updates tab - settings page 
@@ -101,3 +101,30 @@ Color Pallet: Blue, Pink and Purple
 
 #Notes
 Completed few high fidelity mockups. 
+
+------------------------------------------------------------------------------------------------------------------------------
+
+#Sonara - UX/UI Design (Sprint 5)
+
+Designer : Mahi Patel  
+Sprint : Weeks 9-10
+Role : UX/UI Designer
+
+#Design Tool
+- Figma
+
+#Screens designed/ Weekly Update
+- User profile page  
+- Explore page  
+- Library page 
+- Worked on earnings 
+- Worked more on making it easier for users   
+
+#Design theme
+The background is a dark radial gradient.
+The "SONARA" logo is a multi-color linear gradient.
+Color Pallet: Blue, Pink and Purple
+
+#Notes
+Completed few high fidelity mockups. 
+
