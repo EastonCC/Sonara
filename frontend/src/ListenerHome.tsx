@@ -152,19 +152,6 @@ const ListenerHome = () => {
     usePlayerStore.getState().play(toQueueItem(item), { queue });
   };
 
-  const playAll = () => {
-    const queue = buildHomeQueue();
-    if (queue.length === 0) return;
-    usePlayerStore.getState().play(queue[0], { queue });
-  };
-
-  const shuffleAll = () => {
-    const queue = buildHomeQueue();
-    if (queue.length === 0) return;
-    const shuffled = [...queue].sort(() => Math.random() - 0.5);
-    usePlayerStore.getState().play(shuffled[0], { queue: shuffled });
-  };
-
   const isPlaying = (item: Track) =>
     globalPlayerState.currentTrack?.id === item.id &&
     globalPlayerState.currentTrack?.type === item.type &&
@@ -494,16 +481,7 @@ const ListenerHome = () => {
                       </svg>
                       New Releases
                     </h2>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <button onClick={playAll} style={styles.queueBtn}>
-                        <PlayGlyph size={12} fill="#fff" /> Play All
-                      </button>
-                      <button onClick={shuffleAll} style={styles.queueBtn}>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
-                        Shuffle
-                      </button>
-                      <Link to="/explore" style={styles.seeAll}>See all</Link>
-                    </div>
+                    <Link to="/explore" style={styles.seeAll}>See all</Link>
                   </div>
                   <div className="track-grid-responsive" style={styles.trackGrid}>
                     {newReleases.slice(0, 6).map((item, idx) => (
@@ -801,20 +779,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#a78bfa',
     fontWeight: 600,
     textDecoration: 'none',
-  },
-  queueBtn: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 5,
-    fontSize: 12,
-    fontWeight: 600,
-    color: '#fff',
-    background: 'rgba(255,255,255,0.08)',
-    border: '1px solid rgba(255,255,255,0.12)',
-    borderRadius: 20,
-    padding: '5px 12px',
-    cursor: 'pointer',
-    fontFamily: "'Poppins', sans-serif",
   },
   sectionSubtle: {
     fontSize: 12,
